@@ -12,7 +12,7 @@ export default function HomeScreen() {
       headerImage={
         <Image
           source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+          className="h-[178px] w-[290px] bottom-0 left-0 absolute"
         />
       }>
       <ThemedView style={styles.titleContainer}>
@@ -22,7 +22,7 @@ export default function HomeScreen() {
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 1: Try it</ThemedText>
         <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
+          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see a fun surprise!
           Press{' '}
           <ThemedText type="defaultSemiBold">
             {Platform.select({

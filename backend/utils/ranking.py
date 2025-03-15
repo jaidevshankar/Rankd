@@ -1,5 +1,7 @@
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
+from fastapi import FastAPI, HTTPException, Query, Body
+from fastapi.middleware.cors import CORSMiddleware
 
 # Initialize the Spotify client with credentials
 sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
@@ -18,3 +20,14 @@ def fetch_album(album_id: str):
             "tracks": [track["name"] for track in album_data["tracks"]["items"]]
         }
     }
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust this to restrict specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+

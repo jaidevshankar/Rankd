@@ -2,6 +2,7 @@ from http.client import HTTPException
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import requests
+from fastapi import HTTPException
 
 # Initialize the Spotify client with credentials
 sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
@@ -20,6 +21,7 @@ def fetch_album(album_id: str):
             "tracks": [track["name"] for track in album_data["tracks"]["items"]]
         }
     }
+
 
 yelp_api_key = "ucZ-Ad_-RlW5rWrFLkUEo26NwPXJer4-8x5D-kwrJXYk8IOWseuNMiofbR0_YgpPBhzcDTa4GR4a6B9-xUyKPkmAsr6-xQALz73qxmeNSTIgVd0V2W1KZ7y760t7Z3Yx"
 def fetch_restaurant_data(restaurant_id: str):
@@ -54,3 +56,37 @@ def fetch_restaurant_data(restaurant_id: str):
         raise HTTPException(status_code=400, detail=f"Error fetching restaurant data: {str(e)}")
     except (KeyError, TypeError, IndexError) as e:
         raise HTTPException(status_code=400, detail=f"Error parsing restaurant data: {str(e)}")
+
+TMDB_API_KEY = "213e8f28caae25b3b4cc495a11db1272"
+
+def fetch_movie(movie_id: str):
+    url = f"https://api.themoviedb.org/3/movie/{movie_id}"
+    params = {"api_key": TMDB_API_KEY}
+    response = requests.get(url, params=params)
+    if response.status_code != 200:
+        raise HTTPException(status_code=400, detail="Invalid movie ID")
+    movie_data = response.json()
+    return {
+        "item_id": movie_data["id"],
+        "item_name": movie_data["title"],
+        "metadata": {
+            "release_date": movie_data["release_date"],
+            "genres": [genre["name"] for genre in movie_data["genres"]]
+        }
+    }
+
+def fetch_tv(tv_id: str):
+    url = f"https://api.themoviedb.org/3/tv/{tv_id}"
+    params = {"api_key": TMDB_API_KEY}
+    response = requests.get(url, params=params)
+    if response.status_code != 200:
+        raise HTTPException(status_code=400, detail="Invalid TV ID")
+    tv_data = response.json()
+    return {
+        "item_id": tv_data["id"],
+        "item_name": tv_data["name"],
+        "metadata": {
+            "release_date": tv_data["first_air_date"],
+            "genres": [genre["name"] for genre in tv_data["genres"]]
+        }
+    }

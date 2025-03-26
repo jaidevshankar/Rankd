@@ -1,6 +1,8 @@
 from http.client import HTTPException
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
+from fastapi import FastAPI, HTTPException, Query, Body
+from fastapi.middleware.cors import CORSMiddleware
 import requests
 from fastapi import HTTPException
 
@@ -22,6 +24,15 @@ def fetch_album(album_id: str):
         }
     }
 
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust this to restrict specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 yelp_api_key = "ucZ-Ad_-RlW5rWrFLkUEo26NwPXJer4-8x5D-kwrJXYk8IOWseuNMiofbR0_YgpPBhzcDTa4GR4a6B9-xUyKPkmAsr6-xQALz73qxmeNSTIgVd0V2W1KZ7y760t7Z3Yx"
 def fetch_restaurant_data(restaurant_id: str):

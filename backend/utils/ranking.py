@@ -1,3 +1,4 @@
+from http.client import HTTPException
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import requests
@@ -21,6 +22,40 @@ def fetch_album(album_id: str):
         }
     }
 
+
+yelp_api_key = "ucZ-Ad_-RlW5rWrFLkUEo26NwPXJer4-8x5D-kwrJXYk8IOWseuNMiofbR0_YgpPBhzcDTa4GR4a6B9-xUyKPkmAsr6-xQALz73qxmeNSTIgVd0V2W1KZ7y760t7Z3Yx"
+def fetch_restaurant_data(restaurant_id: str):
+    url = f"https://api.yelp.com/v3/businesses/{restaurant_id}"
+    headers = {
+        "Authorization": f"Bearer {yelp_api_key}"
+    }
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        
+        restaurant = response.json()
+        if not restaurant:
+            raise HTTPException(status_code=404, detail="Restaurant not found")
+            
+        return {
+            "item_id": restaurant["id"],
+            "item_name": restaurant["name"],
+            "metadata": {
+                "rating": restaurant.get("rating"),
+                "price": restaurant.get("price", "N/A"),
+                "categories": [category["title"] for category in restaurant.get("categories", [])],
+                "location": {
+                    "address": restaurant.get("location", {}).get("address1"),
+                    "city": restaurant.get("location", {}).get("city"),
+                    "state": restaurant.get("location", {}).get("state"),
+                    "zip_code": restaurant.get("location", {}).get("zip_code")
+                }
+            }
+        }
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=400, detail=f"Error fetching restaurant data: {str(e)}")
+    except (KeyError, TypeError, IndexError) as e:
+        raise HTTPException(status_code=400, detail=f"Error parsing restaurant data: {str(e)}")
 
 TMDB_API_KEY = "213e8f28caae25b3b4cc495a11db1272"
 

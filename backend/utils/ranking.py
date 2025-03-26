@@ -90,3 +90,23 @@ def fetch_tv(tv_id: str):
             "genres": [genre["name"] for genre in tv_data["genres"]]
         }
     }
+
+GOOGLE_API_KEY = "AIzaSyCiBmNOrvLUCDq-7h_7Wn1td4OKeQGntbs"
+GOOGLE_API_LINK = "https://www.googleapis.com/books/v1"
+
+def fetch_book(book_id: str):
+    url = f"{GOOGLE_API_LINK}/volumes/{book_id}?key={GOOGLE_API_KEY}"
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise HTTPException(status_code=400, detail="Invalid book ID")
+    book_data = response.json()
+    return {
+        "item_id": book_data["id"],
+        "item_name": book_data["volumeInfo"]["title"],  
+        "metadata": {
+            "authors": book_data["volumeInfo"]["authors"],
+            "publisher": book_data["volumeInfo"]["publisher"],
+            "published_date": book_data["volumeInfo"]["publishedDate"],
+            "description": book_data["volumeInfo"]["description"]
+        }
+    }

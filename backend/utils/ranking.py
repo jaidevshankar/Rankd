@@ -90,3 +90,69 @@ def fetch_tv(tv_id: str):
             "genres": [genre["name"] for genre in tv_data["genres"]]
         }
     }
+TOKEN_URL = "https://id.twitch.tv/oauth2/token"
+CLIENT_ID = "kyims1uluvn3gbsfb5su8uvso8jjyw"
+CLIENT_SECRET = "mqnigbgfjiqa9clj0h8nef6dm7d8qq"
+def get_access_token():
+    """
+    Fetch a new access token from the IGDB API.
+    """
+    params = {
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "grant_type": "client_credentials"
+    }
+    
+    try:
+        response = requests.post(TOKEN_URL, params=params)
+        response.raise_for_status()
+        return response.json().get("access_token")
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=400, detail=f"Error fetching access token: {str(e)}")
+
+def fetch_game_data(game_id: str):
+    """
+    Fetch game data from the IGDB API.
+    
+    :param game_id: ID of the game to fetch
+    :return: Dictionary containing game information
+    """
+    access_token = get_access_token()
+    url = "https://api.igdb.com/v4/games"
+    headers = {
+        "Client-ID": CLIENT_ID,
+        "Authorization": f"Bearer {access_token}"
+    }
+    
+    # Request specific fields we need
+    body = "fields id,name,first_release_date,genres.name,platforms.name;"
+    body += f" where id = {game_id};"
+    
+    try:
+        response = requests.post(url, headers=headers, data=body)
+        response.raise_for_status()
+        
+        game_data = response.json()
+        if not game_data:
+            raise HTTPException(status_code=404, detail="Game not found")
+            
+        game = game_data[0]  # Get first (and should be only) game
+        
+        # Safely get genres and platforms
+        genres = game.get("genres", [])
+        platforms = game.get("platforms", [])
+        
+        return {
+            "item_id": game["id"],
+            "item_name": game["name"],
+            "metadata": {
+                "release_date": game.get("first_release_date", None),
+                "genres": [genre["name"] for genre in genres] if genres else [],
+                "platforms": [platform["name"] for platform in platforms] if platforms else []
+            }
+        }
+        
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=400, detail=f"Error fetching game data: {str(e)}")
+    except (KeyError, TypeError, IndexError) as e:
+        raise HTTPException(status_code=400, detail=f"Error parsing game data: {str(e)}")

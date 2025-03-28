@@ -1,6 +1,8 @@
 from http.client import HTTPException
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
+from fastapi import FastAPI, HTTPException, Query, Body
+from fastapi.middleware.cors import CORSMiddleware
 import requests
 from fastapi import HTTPException
 
@@ -22,6 +24,15 @@ def fetch_album(album_id: str):
         }
     }
 
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust this to restrict specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 yelp_api_key = "ucZ-Ad_-RlW5rWrFLkUEo26NwPXJer4-8x5D-kwrJXYk8IOWseuNMiofbR0_YgpPBhzcDTa4GR4a6B9-xUyKPkmAsr6-xQALz73qxmeNSTIgVd0V2W1KZ7y760t7Z3Yx"
 def fetch_restaurant_data(restaurant_id: str):
@@ -90,6 +101,7 @@ def fetch_tv(tv_id: str):
             "genres": [genre["name"] for genre in tv_data["genres"]]
         }
     }
+
 TOKEN_URL = "https://id.twitch.tv/oauth2/token"
 CLIENT_ID = "kyims1uluvn3gbsfb5su8uvso8jjyw"
 CLIENT_SECRET = "mqnigbgfjiqa9clj0h8nef6dm7d8qq"
@@ -156,3 +168,24 @@ def fetch_game_data(game_id: str):
         raise HTTPException(status_code=400, detail=f"Error fetching game data: {str(e)}")
     except (KeyError, TypeError, IndexError) as e:
         raise HTTPException(status_code=400, detail=f"Error parsing game data: {str(e)}")
+
+GOOGLE_API_KEY = "AIzaSyCiBmNOrvLUCDq-7h_7Wn1td4OKeQGntbs"
+GOOGLE_API_LINK = "https://www.googleapis.com/books/v1"
+
+def fetch_book(book_id: str):
+    url = f"{GOOGLE_API_LINK}/volumes/{book_id}?key={GOOGLE_API_KEY}"
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise HTTPException(status_code=400, detail="Invalid book ID")
+    book_data = response.json()
+    return {
+        "item_id": book_data["id"],
+        "item_name": book_data["volumeInfo"]["title"],  
+        "metadata": {
+            "authors": book_data["volumeInfo"]["authors"],
+            "publisher": book_data["volumeInfo"]["publisher"],
+            "published_date": book_data["volumeInfo"]["publishedDate"],
+            "description": book_data["volumeInfo"]["description"]
+        }
+    }
+

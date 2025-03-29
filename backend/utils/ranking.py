@@ -124,7 +124,7 @@ def fetch_book(book_id: str):
             "description": book_data["volumeInfo"]["description"]
         }
     }
-
+  
 class ItemComparisonRequest(BaseModel):
     user_id: int
     item_id: str

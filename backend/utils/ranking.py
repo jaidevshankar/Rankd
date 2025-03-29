@@ -1,3 +1,4 @@
+import os
 from http.client import HTTPException
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -5,6 +6,15 @@ from fastapi import FastAPI, HTTPException, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 from fastapi import HTTPException
+from supabase import create_client, Client
+from dotenv import load_dotenv
+
+
+# Initialize .env
+load_dotenv(dotenv_path="../.env")
+
+# Initialize Supabase
+supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
 # Initialize the Spotify client with credentials
 sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(

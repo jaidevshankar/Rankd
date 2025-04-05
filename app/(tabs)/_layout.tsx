@@ -1,43 +1,63 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { Platform } from 'react-native';
-
-import { HapticTab } from '@/components/HapticTab';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import TabBarBackground from '@/components/ui/TabBarBackground';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { Tabs } from "expo-router"
+import { useColorScheme } from "@/hooks/useColorScheme"
+import { Ionicons, FontAwesome } from "@expo/vector-icons"
+import Colors from "@/constants/Colors"
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const colorScheme = useColorScheme()
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: 'absolute',
-          },
-          default: {},
-        }),
-      }}>
+        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
+        tabBarStyle: {
+          borderTopWidth: 1,
+          borderTopColor: "#dadada",
+          height: 60,
+          paddingBottom: 10,
+        },
+        headerStyle: {
+          backgroundColor: "#ffffff",
+        },
+        headerTitleStyle: {
+          fontWeight: "bold",
+          fontSize: 20,
+        },
+        headerTitleAlign: "center",
+        headerLeft: () => <Ionicons name="menu-outline" size={24} color="#24262b" style={{ marginLeft: 15 }} />,
+        headerRight: () => <FontAwesome name="user-circle" size={24} color="#24262b" style={{ marginRight: 15 }} />,
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: "Rankd",
+          tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={24} color={color} />,
+          tabBarLabel: "",
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="search"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: "Rankd",
+          tabBarIcon: ({ color }) => <Ionicons name="search-outline" size={24} color={color} />,
+          tabBarLabel: "",
+        }}
+      />
+      <Tabs.Screen
+        name="people"
+        options={{
+          title: "Rankd",
+          tabBarIcon: ({ color }) => <Ionicons name="people-outline" size={24} color={color} />,
+          tabBarLabel: "",
+        }}
+      />
+      <Tabs.Screen
+        name="rankings"
+        options={{
+          title: "Rankd",
+          tabBarIcon: ({ color }) => <Ionicons name="list-outline" size={24} color={color} />,
+          tabBarLabel: "",
         }}
       />
       <Tabs.Screen
@@ -48,5 +68,6 @@ export default function TabLayout() {
         }}
         />
     </Tabs>
-  );
+  )
 }
+

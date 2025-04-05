@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -146,4 +147,3 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 })
-

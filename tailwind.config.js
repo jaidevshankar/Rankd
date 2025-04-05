@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss"
 const { shadcnPlugin } = require("./lib/shadcn-plugin")
 
@@ -8,7 +9,9 @@ const config: Config = {
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "*.{js,ts,jsx,tsx,mdx}",
+
   ],
+  presets: [require("nativewind/preset")],
   theme: {
     extend: {
       colors: {

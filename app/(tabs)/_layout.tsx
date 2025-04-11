@@ -1,73 +1,59 @@
-import { Tabs } from "expo-router"
-import { useColorScheme } from "@/hooks/useColorScheme"
-import { Ionicons, FontAwesome } from "@expo/vector-icons"
-import Colors from "@/constants/Colors"
+import React from 'react';
+import { Tabs } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme()
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
+        tabBarActiveTintColor: '#007AFF',
+        tabBarInactiveTintColor: '#8E8E93',
         tabBarStyle: {
           borderTopWidth: 1,
-          borderTopColor: "#dadada",
+          borderTopColor: '#E5E5EA',
           height: 60,
           paddingBottom: 10,
         },
-        headerStyle: {
-          backgroundColor: "#ffffff",
-        },
-        headerTitleStyle: {
-          fontWeight: "bold",
-          fontSize: 20,
-        },
-        headerTitleAlign: "center",
-        headerLeft: () => <Ionicons name="menu-outline" size={24} color="#24262b" style={{ marginLeft: 15 }} />,
-        headerRight: () => <FontAwesome name="user-circle" size={24} color="#24262b" style={{ marginRight: 15 }} />,
+        headerShown: false,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "Rankd",
-          tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={24} color={color} />,
-          tabBarLabel: "",
+          title: 'Home',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="search"
         options={{
-          title: "Rankd",
-          tabBarIcon: ({ color }) => <Ionicons name="search-outline" size={24} color={color} />,
-          tabBarLabel: "",
+          title: 'Search',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="search" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="people"
         options={{
-          title: "Rankd",
-          tabBarIcon: ({ color }) => <Ionicons name="people-outline" size={24} color={color} />,
-          tabBarLabel: "",
+          title: 'People',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="rankings"
         options={{
-          title: "Rankd",
-          tabBarIcon: ({ color }) => <Ionicons name="list-outline" size={24} color={color} />,
-          tabBarLabel: "",
+          title: 'Rankings',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="list" size={size} color={color} />
+          ),
         }}
       />
-      <Tabs.Screen
-        name="dev"
-        options={{
-          title: 'Dev',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-        />
     </Tabs>
-  )
+  );
 }
 

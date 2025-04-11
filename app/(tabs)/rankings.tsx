@@ -1,62 +1,22 @@
-import { StyleSheet, View, Text, Image, ScrollView } from "react-native"
-import { SafeAreaView } from "react-native-safe-area-context"
+import { View, Text, StyleSheet } from 'react-native';
 
 export default function RankingsScreen() {
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <ScrollView contentContainerStyle={styles.contentContainer}>
-        <Text style={styles.title}>Your Ranking:</Text>
-
-        <View style={styles.rankingItem}>
-          <Text style={styles.rankingNumber}>1.</Text>
-          <Image source={{ uri: "https://via.placeholder.com/128x128" }} style={styles.rankingImage} />
-        </View>
-
-        <View style={styles.rankingItem}>
-          <Text style={styles.rankingNumber}>2.</Text>
-          <Image source={{ uri: "https://via.placeholder.com/128x128" }} style={styles.rankingImage} />
-        </View>
-
-        <View style={styles.rankingItem}>
-          <Text style={styles.rankingNumber}>3.</Text>
-          <Image source={{ uri: "https://via.placeholder.com/128x128" }} style={styles.rankingImage} />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  )
+    <View style={styles.container}>
+      <Text style={styles.text}>Rankings Screen</Text>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'white',
   },
-  contentContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 24,
-    color: "#24262b",
-  },
-  rankingItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  rankingNumber: {
+  text: {
     fontSize: 20,
-    fontWeight: "bold",
-    marginRight: 16,
-    color: "#24262b",
+    fontWeight: 'bold',
   },
-  rankingImage: {
-    width: 128,
-    height: 128,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: "#dadada",
-  },
-})
+});

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -6,60 +5,72 @@ import { StyleSheet, View, Text, Image, TouchableOpacity, ScrollView } from "rea
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-export default function HomeScreen() {
-  const [activeTab, setActiveTab] = useState<"movies" | "albums">("movies")
+type TabType = "Movies" | "Albums";
+
+// Define placeholder images
+const PLACEHOLDER_IMAGES = {
+  movie: require('../../assets/images/icon.png'),
+} as const;
+
+export default function HomePage() {
+  const [selectedTab, setSelectedTab] = useState<TabType>("Movies")
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
+      {/* Content Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === "albums" ? styles.activeTab : styles.inactiveTab]}
-          onPress={() => setActiveTab("albums")}
+          style={[
+            styles.tabButton,
+            { backgroundColor: selectedTab === "Albums" ? '#f6f6f6' : '#f6f6f6' }
+          ]}
+          onPress={() => setSelectedTab("Albums")}
         >
-          <Text style={[styles.tabText, activeTab === "albums" ? styles.activeTabText : styles.inactiveTabText]}>
-            Albums
-          </Text>
+          <Text style={styles.tabText}>Albums</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === "movies" ? styles.activeTab : styles.inactiveTab]}
-          onPress={() => setActiveTab("movies")}
+          style={[
+            styles.tabButton,
+            { backgroundColor: selectedTab === "Movies" ? 'black' : '#f6f6f6' }
+          ]}
+          onPress={() => setSelectedTab("Movies")}
         >
-          <Text style={[styles.tabText, activeTab === "movies" ? styles.activeTabText : styles.inactiveTabText]}>
-            Movies
-          </Text>
+          <Text style={[
+            styles.tabText,
+            { color: selectedTab === "Movies" ? 'white' : 'black' }
+          ]}>Movies</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.addButton}>
-          <Ionicons name="add" size={20} color="#24262b" />
+          <Ionicons name="add" size={20} color="#000" />
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.contentContainer}>
-        <Text style={styles.title}>{activeTab === "movies" ? "Pick the Better Movie" : "Pick the Better Album"}</Text>
+      {/* Main Content */}
+      <ScrollView style={styles.content}>
+        <Text style={styles.title}>Pick the Better Movie</Text>
 
-        <View style={styles.itemsContainer}>
-          {activeTab === "movies" ? (
-            <>
-              <View style={styles.itemWrapper}>
-                <Image source={{ uri: "https://via.placeholder.com/160x224" }} style={styles.moviePoster} />
-                <Text style={styles.itemTitle}>Akira</Text>
-              </View>
-              <View style={styles.itemWrapper}>
-                <Image source={{ uri: "https://via.placeholder.com/160x224" }} style={styles.moviePoster} />
-                <Text style={styles.itemTitle}>Everything, Everywhere,{"\n"}All at Once</Text>
-              </View>
-            </>
-          ) : (
-            <>
-              <View style={styles.itemWrapper}>
-                <View style={styles.albumCover} />
-                <Text style={styles.itemTitle}>Album 1</Text>
-              </View>
-              <View style={styles.itemWrapper}>
-                <View style={styles.albumCover} />
-                <Text style={styles.itemTitle}>Album 2</Text>
-              </View>
-            </>
-          )}
+        {/* Movie 1 */}
+        <View style={styles.movieContainer}>
+          <View style={styles.movieImageContainer}>
+            <Image
+              source={PLACEHOLDER_IMAGES.movie}
+              style={styles.movieImage}
+              resizeMode="cover"
+            />
+          </View>
+          <Text style={styles.movieTitle}>Akira</Text>
+        </View>
+
+        {/* Movie 2 */}
+        <View style={styles.movieContainer}>
+          <View style={styles.movieImageContainer}>
+            <Image
+              source={PLACEHOLDER_IMAGES.movie}
+              style={styles.movieImage}
+              resizeMode="cover"
+            />
+          </View>
+          <Text style={styles.movieTitle}>Everything Everywhere All at Once</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -69,81 +80,58 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: 'white',
   },
   tabContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
     gap: 8,
-  },
-  tab: {
     paddingHorizontal: 16,
+    marginTop: 16,
+  },
+  tabButton: {
+    paddingHorizontal: 24,
     paddingVertical: 8,
     borderRadius: 20,
   },
-  activeTab: {
-    backgroundColor: "#24262b",
-  },
-  inactiveTab: {
-    backgroundColor: "#f6f6f6",
-  },
   tabText: {
-    fontWeight: "500",
-  },
-  activeTabText: {
-    color: "#ffffff",
-  },
-  inactiveTabText: {
-    color: "#24262b",
+    color: 'black',
   },
   addButton: {
-    width: 32,
-    height: 32,
-    justifyContent: "center",
-    alignItems: "center",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f6f6f6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  contentContainer: {
+  content: {
     paddingHorizontal: 16,
-    paddingVertical: 24,
-    alignItems: "center",
+    marginTop: 32,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 30,
+    fontWeight: 'bold',
     marginBottom: 24,
-    color: "#24262b",
   },
-  itemsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-    paddingHorizontal: 16,
+  movieContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
   },
-  itemWrapper: {
-    alignItems: "center",
-  },
-  moviePoster: {
-    width: 160,
-    height: 224,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: "#dadada",
+  movieImageContainer: {
+    width: 192,
+    height: 256,
+    overflow: 'hidden',
     marginBottom: 8,
   },
-  albumCover: {
-    width: 160,
-    height: 160,
-    backgroundColor: "#d9d9d9",
-    borderRadius: 4,
-    marginBottom: 8,
+  movieImage: {
+    width: 192,
+    height: 256,
+    borderRadius: 6,
   },
-  itemTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#24262b",
-    textAlign: "center",
+  movieTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 })

@@ -10,11 +10,10 @@ type Friend = {
 
 // Sample friend data - in a real app, this would come from your backend
 const initialFriends: Friend[] = [
-  { id: '1', name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1' },
-  { id: '2', name: 'Jane Smith', avatar: 'https://i.pravatar.cc/150?img=2' },
-  { id: '3', name: 'Mike Johnson', avatar: 'https://i.pravatar.cc/150?img=3' },
-  { id: '4', name: 'Sarah Williams', avatar: 'https://i.pravatar.cc/150?img=4' },
-  { id: '5', name: 'David Brown', avatar: 'https://i.pravatar.cc/150?img=5' },
+  { id: '1', name: 'Leon', avatar: 'https://i.pravatar.cc/150?img=1' },
+  { id: '2', name: 'Jai', avatar: 'https://i.pravatar.cc/150?img=2' },
+  { id: '3', name: 'Samarth', avatar: 'https://i.pravatar.cc/150?img=3' },
+  { id: '4', name: 'Neel', avatar: 'https://i.pravatar.cc/150?img=4' },
 ];
 
 export default function PeopleScreen() {

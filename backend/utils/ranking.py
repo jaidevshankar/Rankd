@@ -157,7 +157,7 @@ url = "https://gkvqpvkyncgblfbfmsoz.supabase.co"
 key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrdnFwdmt5bmNnYmxmYmZtc296Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNDk5MTI5NSwiZXhwIjoyMDUwNTY3Mjk1fQ.KPPQgtkdf6tycv7CKe7hYhbKc0wx48mbeIXWAWU3OOs"
 supabase: Client = create_client(url, key)
 
-# Generalized request model
+# Generalized request model (unchanged)
 class ItemComparisonRequest(BaseModel):
     user_id: int
     item_id: str
@@ -178,7 +178,72 @@ def read_rood():
     return {"message": "Hello, world!"}
 
 
-# API-specific fetch functions
+# ------------------------- Helper Functions for New Logic ------------------------- #
+# CHANGE: Helper function to update ratings using an Elo update adapted to a 0-10 scale.
+def update_elo_ratings(item_a: dict, item_b: dict, winner: str, K: float = 1.0):
+    """Update Elo-like ratings for two items based on which item was preferred (winner).
+       Ratings are maintained on a 0-10 scale.
+    """
+    Ra, Rb = item_a["score"], item_b["score"]
+    # Use a scale factor of 10 for the logistic formula
+    expected_a = 1 / (1 + 10 ** ((Rb - Ra) / 10))
+    expected_b = 1 - expected_a
+    if winner == "A":
+        Sa, Sb = 1.0, 0.0
+    else:
+        Sa, Sb = 0.0, 1.0
+    new_Ra = Ra + K * (Sa - expected_a)
+    new_Rb = Rb + K * (Sb - expected_b)
+    # Clamp ratings to 0-10
+    new_Ra = max(0.0, min(10.0, new_Ra))
+    new_Rb = max(0.0, min(10.0, new_Rb))
+    return new_Ra, new_Rb
+
+# CHANGE: Function to redistribute initial calibration scores by category once 10 items exist.
+def redistribute_initial_scores(user_id: int, topic_id: int):
+    """
+    Redistribute scores for the first 10 items, grouping by category and mapping:
+      - Disliked items to [0.0, 4.0]
+      - Liked items to [4.0, 7.0]
+      - Loved items to [7.0, 10.0]
+    """
+    ranked_items = fetch_ranked_items(user_id, topic_id)
+    # Build category groups by fetching each item's category from the Items table.
+    categories = {"Loved": [], "Liked": [], "Disliked": []}
+    for item in ranked_items:
+        # Retrieve category from Items table
+        itm = supabase.table("Items").select("item_name, category").eq("item_id", item["item_id"]).execute().data
+        if itm and "category" in itm[0] and itm[0]["category"]:
+            cat = itm[0]["category"]
+            if cat in categories:
+                categories[cat].append(item)
+    # For each category, sort the items in descending order of current score and reassign scores
+    for cat, items in categories.items():
+        if not items:
+            continue
+        # Define target ranges
+        if cat == "Loved":
+            cat_min, cat_max = 7.0, 10.0
+        elif cat == "Liked":
+            cat_min, cat_max = 4.0, 7.0
+        elif cat == "Disliked":
+            cat_min, cat_max = 0.0, 4.0
+        items.sort(key=lambda x: x.get("score", 0), reverse=True)
+        n = len(items)
+        for rank, item in enumerate(items, start=1):
+            if n == 1:
+                new_score = (cat_min + cat_max) / 2.0
+            else:
+                # Use a linear percentile mapping (rank/(n+1))
+                percentile = rank / (n + 1)
+                new_score = cat_min + (cat_max - cat_min) * percentile
+            # Update the ranking with the new score
+            supabase.table("Rankings").update({"score": new_score}).eq("ranking_id", item["ranking_id"]).execute()
+
+# ------------------------- End Helper Functions ------------------------- #
+
+
+# API-specific fetch functions (unchanged)
 def fetch_album(album_id: str):
     album_data = sp.album(album_id)
     return {
@@ -266,9 +331,6 @@ def get_access_token():
 def fetch_game_data(game_id: str):
     """
     Fetch game data from the IGDB API.
-    
-    :param game_id: ID of the game to fetch
-    :return: Dictionary containing game information
     """
     access_token = get_access_token()
     url = "https://api.igdb.com/v4/games"
@@ -277,7 +339,6 @@ def fetch_game_data(game_id: str):
         "Authorization": f"Bearer {access_token}"
     }
     
-    # Request specific fields we need
     body = "fields id,name,first_release_date,genres.name,platforms.name;"
     body += f" where id = {game_id};"
     
@@ -289,9 +350,8 @@ def fetch_game_data(game_id: str):
         if not game_data:
             raise HTTPException(status_code=404, detail="Game not found")
             
-        game = game_data[0]  # Get first (and should be only) game
+        game = game_data[0]
         
-        # Safely get genres and platforms
         genres = game.get("genres", [])
         platforms = game.get("platforms", [])
         
@@ -310,13 +370,9 @@ def fetch_game_data(game_id: str):
     except (KeyError, TypeError, IndexError) as e:
         raise HTTPException(status_code=400, detail=f"Error parsing game data: {str(e)}")
 
-
 def fetch_restaurant_data(restaurant_id: str):
     """
     Fetch restaurant data from the Yelp API.
-    
-    :param restaurant_id: ID of the restaurant to fetch
-    :return: Dictionary containing restaurant information
     """
     url = f"https://api.yelp.com/v3/businesses/{restaurant_id}"
     headers = {
@@ -353,7 +409,7 @@ def fetch_restaurant_data(restaurant_id: str):
         raise HTTPException(status_code=400, detail=f"Error parsing restaurant data: {str(e)}")
 
 
-# Dispatcher for fetching item data
+# Dispatcher for fetching item data (unchanged)
 def fetch_item_data(topic_name: str, item_id: str):
     topic_apis = {
         "Albums": fetch_album,
@@ -368,10 +424,9 @@ def fetch_item_data(topic_name: str, item_id: str):
     if topic_name not in topic_apis:
         raise HTTPException(status_code=400, detail=f"Unsupported topic: {topic_name}")
 
-
     return topic_apis[topic_name](item_id)
 
-# Fetch rankings in linked list order
+# Fetch rankings in linked list order (unchanged)
 def fetch_ranked_items(user_id: int, topic_id: int):
     ranked_items = supabase.table("Rankings").select("*").eq("user_id", user_id).eq("topic_id", topic_id).execute().data
     if not ranked_items:
@@ -385,14 +440,19 @@ def fetch_ranked_items(user_id: int, topic_id: int):
     ordered_rankings = []
     current = head
     while current:
-        item_data = supabase.table("Items").select("item_name").eq("item_id", current["item_id"]).execute().data
-        current["item_name"] = item_data[0]["item_name"] if item_data else f"Item {current['item_id']}"
+        item_data = supabase.table("Items").select("item_name, category").eq("item_id", current["item_id"]).execute().data
+        # CHANGE: Also attach category from Items table here.
+        if item_data:
+            current["item_name"] = item_data[0]["item_name"]
+            current["category"] = item_data[0].get("category", None)
+        else:
+            current["item_name"] = f"Item {current['item_id']}"
         ordered_rankings.append(current)
         current = id_to_ranking.get(current["next_item"])
 
     return ordered_rankings
 
-
+# ------------------- /compare Endpoint with Calibration and Elo Modes ------------------- #
 @app.post("/compare")
 def compare_item(request: ItemComparisonRequest):
     user_id = request.user_id
@@ -404,127 +464,191 @@ def compare_item(request: ItemComparisonRequest):
         raise HTTPException(status_code=404, detail="Topic not found")
     topic_id = topic[0]["topic_id"]
 
-
     try:
         item_data = fetch_item_data(topic_name, item_id)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    existing_item = supabase.table("Items").select("*").eq("item_name", ["item_name"]).execute().data
+    # CHANGE: Check if the item already exists in Items table.
+    existing_item = supabase.table("Items").select("*").eq("item_name", item_data["item_name"]).execute().data
+    # If item does not exist, insert it.
     if not existing_item:
-        new_item = {
-            "topic_id": topic_id,
-            "item_name": item_data["item_name"],
-            "created_by": user_id
-        }
-        supabase.table("Items").insert(new_item).execute()
-        existing_item = supabase.table("Items").select("*").eq("item_name", item_data["item_name"]).execute().data
+        # CHANGE: If user is in calibration phase (<10 items), ask for category.
+        ranked_items = fetch_ranked_items(user_id, topic_id)
+        if len(ranked_items) < 10:
+            user_category = input("Calibration: Type 'Loved', 'Liked', or 'Disliked' for this new item: ").strip().capitalize()
+            if user_category not in ["Loved", "Liked", "Disliked"]:
+                raise HTTPException(status_code=400, detail="Category must be Loved, Liked, or Disliked")
+            # Set default score based on category for first item in that category.
+            default_scores = {"Loved": 8.5, "Liked": 5.5, "Disliked": 2.0}
+            initial_score = default_scores[user_category]
+            new_item = {
+                "topic_id": topic_id,
+                "item_name": item_data["item_name"],
+                "created_by": user_id,
+                "category": user_category  # CHANGE: store category
+            }
+            supabase.table("Items").insert(new_item).execute()
+            existing_item = supabase.table("Items").select("*").eq("item_name", item_data["item_name"]).execute().data
+        else:
+            # In Elo mode, category is no longer needed; insert without it.
+            new_item = {
+                "topic_id": topic_id,
+                "item_name": item_data["item_name"],
+                "created_by": user_id
+            }
+            supabase.table("Items").insert(new_item).execute()
+            existing_item = supabase.table("Items").select("*").eq("item_name", item_data["item_name"]).execute().data
 
     item_info = {
         "id": existing_item[0]["item_id"],
         "name": existing_item[0]["item_name"],
-        "score": None
+        # CHANGE: In calibration, score is not set until comparison; in Elo mode, we start with a default.
+        "score": existing_item[0].get("score", None)
     }
 
     ranked_items = fetch_ranked_items(user_id, topic_id)
+    total_items = len(ranked_items)
 
-    if not ranked_items:
+    # ------------------- Calibration Mode (<10 items) ------------------- #
+    if total_items < 10:
+        # Filter only items in the same category as the new item.
+        new_category = existing_item[0].get("category", None)
+        # If category not set (should not happen), ask user.
+        if not new_category:
+            new_category = input("Calibration: Type 'Loved', 'Liked', or 'Disliked' for this new item: ").strip().capitalize()
+            if new_category not in ["Loved", "Liked", "Disliked"]:
+                raise HTTPException(status_code=400, detail="Category must be Loved, Liked, or Disliked")
+        same_cat_items = [it for it in ranked_items if it.get("category") == new_category]
+        # If no items in this category exist yet, insert directly with default score.
+        if not same_cat_items:
+            default_scores = {"Loved": 8.5, "Liked": 5.5, "Disliked": 2.0}
+            new_score = default_scores[new_category]
+            new_ranking = {
+                "user_id": user_id,
+                "topic_id": topic_id,
+                "item_id": item_info["id"],
+                "prev_item": None,
+                "next_item": None,
+                "score": new_score
+            }
+            supabase.table("Rankings").insert(new_ranking).execute()
+            ranked_items = fetch_ranked_items(user_id, topic_id)
+            # If this was the 10th overall item, redistribute calibration scores.
+            if len(ranked_items) == 10:
+                redistribute_initial_scores(user_id, topic_id)
+            return {"message": "Item added in calibration mode.", "ranking": ranked_items}
+        # Otherwise, perform binary search-like comparison within this category.
+        left, right = 0, len(same_cat_items) - 1
+        insertion_index = -1
+        while left <= right:
+            mid = (left + right) // 2
+            current_item = same_cat_items[mid]
+            print(f"(Calibration) Is the new item '{item_info['name']}' better or worse than '{current_item['item_name']}'?")
+            comparison_choice = input("Type 'better' or 'worse': ").strip().lower()
+            if comparison_choice == "better":
+                right = mid - 1
+                insertion_index = mid  # Insert before current
+            elif comparison_choice == "worse":
+                left = mid + 1
+                insertion_index = left  # Insert after current
+            else:
+                print("Invalid input. Please type 'better' or 'worse'.")
+        # Determine prev and next items from the filtered same_cat_items.
+        prev_item_id = same_cat_items[insertion_index - 1]["item_id"] if insertion_index > 0 else None
+        next_item_id = same_cat_items[insertion_index]["item_id"] if insertion_index < len(same_cat_items) else None
+        # Insert new ranking with no Elo update (will later be redistributed)
         new_ranking = {
             "user_id": user_id,
             "topic_id": topic_id,
             "item_id": item_info["id"],
-            "prev_item": None,
-            "next_item": None,
-            "score": None
+            "prev_item": prev_item_id,
+            "next_item": next_item_id,
+            "score": None  # Will be set upon redistribution
         }
         supabase.table("Rankings").insert(new_ranking).execute()
-        return {"message": "First item added successfully.", "ranking": [item_info]}
+        ranked_items = fetch_ranked_items(user_id, topic_id)
+        # If now exactly 10 items, perform redistribution across categories.
+        if len(ranked_items) == 10:
+            redistribute_initial_scores(user_id, topic_id)
+        return {"message": "Item ranked in calibration mode.", "ranking": ranked_items}
 
-    # Augment rankings with item names
-    rankings = []
-    for rank in ranked_items:
-        item = supabase.table("Items").select("item_name").eq("item_id", rank["item_id"]).execute().data
-        if item:
-            rank["item_name"] = item[0]["item_name"]
-        rankings.append(rank)
+    # ------------------- Elo Mode (>=10 items) ------------------- #
+    # In Elo mode, all comparisons and rerankings use the Elo system.
+    else:
+        # Use the overall ranked_items list (in Elo mode, category comparisons are not enforced)
+        left, right = 0, len(ranked_items) - 1
+        insertion_index = -1
+        new_item_score = 5.5  # Default starting score for new items in Elo mode
+        # If the item doesn't already have a score, assign the default.
+        if item_info["score"] is None:
+            item_info["score"] = new_item_score
+            # Also update the Items table with this default score.
+            supabase.table("Items").update({"score": new_item_score}).eq("item_id", item_info["id"]).execute()
+        while left <= right:
+            mid = (left + right) // 2
+            current_item = ranked_items[mid]
+            print(f"(Elo Mode) Is the item '{item_info['name']}' better or worse than '{current_item['item_name']}'?")
+            comparison_choice = input("Type 'better' or 'worse': ").strip().lower()
+            # In Elo mode, update scores using our Elo function for each comparison.
+            # Fetch current scores from Items table for both items.
+            comp_item_data = supabase.table("Items").select("score").eq("item_id", current_item["item_id"]).execute().data
+            comp_score = comp_item_data[0]["score"] if comp_item_data else 5.5
+            new_item_data = supabase.table("Items").select("score").eq("item_id", item_info["id"]).execute().data
+            new_score = new_item_data[0]["score"] if new_item_data else new_item_score
+            item_a = {"score": new_score}
+            item_b = {"score": comp_score}
+            if comparison_choice == "better":
+                # Consider new item as winner ("A")
+                new_score, comp_new_score = update_elo_ratings(item_a, item_b, "A")
+                right = mid - 1
+                insertion_index = mid  # new item should come before current_item
+            elif comparison_choice == "worse":
+                new_score, comp_new_score = update_elo_ratings(item_a, item_b, "B")
+                left = mid + 1
+                insertion_index = left  # new item should come after current_item
+            else:
+                print("Invalid input. Please type 'better' or 'worse'.")
+                continue
+            # Update both items’ scores in Items table.
+            supabase.table("Items").update({"score": new_score}).eq("item_id", item_info["id"]).execute()
+            supabase.table("Items").update({"score": comp_new_score}).eq("item_id", current_item["item_id"]).execute()
+            item_info["score"] = new_score
+        # Determine overall prev_item and next_item from the Elo-mode ranked_items.
+        prev_item_id = ranked_items[insertion_index - 1]["item_id"] if insertion_index > 0 else None
+        next_item_id = ranked_items[insertion_index]["item_id"] if insertion_index < len(ranked_items) else None
+        new_ranking = {
+            "user_id": user_id,
+            "topic_id": topic_id,
+            "item_id": item_info["id"],
+            "prev_item": prev_item_id,
+            "next_item": next_item_id,
+            "score": item_info["score"]
+        }
+        supabase.table("Rankings").insert(new_ranking).execute()
+        if prev_item_id:
+            supabase.table("Rankings").update({"next_item": item_info["id"]}).eq("item_id", prev_item_id).execute()
+        if next_item_id:
+            supabase.table("Rankings").update({"prev_item": item_info["id"]}).eq("item_id", next_item_id).execute()
+        updated_rankings = fetch_ranked_items(user_id, topic_id)
+        return {"message": "Item ranked successfully in Elo mode.", "ranking": updated_rankings}
 
-    # Binary search-like ranking logic
-    left, right = 0, len(ranked_items) - 1
-    insertion_index = -1
+# ------------------- End /compare Endpoint ------------------- #
 
-    while left <= right:
-        mid = (left + right) // 2
-        current_item = rankings[mid]
-
-        print(f"Is the new item '{item_info['name']}' better or worse than '{current_item['item_name']}'?")
-        comparison_choice = input("Type 'better' or 'worse': ").strip().lower()
-
-        if comparison_choice == "better":
-            right = mid - 1
-            insertion_index = mid  # Insert before current
-        elif comparison_choice == "worse":
-            left = mid + 1
-            insertion_index = left  # Insert after current
-        else:
-            print("Invalid input. Please type 'better' or 'worse'.")
-
-    # Update prev_item and next_item
-    prev_item_id = None
-    next_item_id = None
-
-    if insertion_index > 0:
-        prev_item_id = ranked_items[insertion_index - 1]["item_id"]
-    if insertion_index < len(ranked_items):
-        next_item_id = ranked_items[insertion_index]["item_id"]
-
-    # Insert new item into Rankings
-    new_ranking = {
-        "user_id": user_id,
-        "topic_id": topic_id,
-        "item_id": item_info["id"],
-        "prev_item": prev_item_id,
-        "next_item": next_item_id,
-        "score": None
-    }
-    supabase.table("Rankings").insert(new_ranking).execute()
-
-    # Update adjacent rankings
-    if prev_item_id:
-        supabase.table("Rankings").update({"next_item": item_info["id"]}).eq("item_id", prev_item_id).execute()
-    if next_item_id:
-        supabase.table("Rankings").update({"prev_item": item_info["id"]}).eq("item_id", next_item_id).execute()
-
-    # Distribute scores if there are 10+ items
-    distribute_scores_normal_curve(user_id, topic_id)
-
-    updated_rankings = fetch_ranked_items(user_id, topic_id)
-
-    for rank in updated_rankings:
-        item = supabase.table("Items").select("item_name").eq("item_id", rank["item_id"]).execute().data
-        if item:
-            rank["item_name"] = item[0]["item_name"]
-
-    return {"message": "Item ranked successfully.", "ranking": updated_rankings}
-
-def distribute_scores_normal_curve(user_id: int, topic_id: int):
-    """Distribute scores on a normal curve for the first 10 items."""
+def redistribute_scores_normal_curve(user_id: int, topic_id: int):
+    """
+    (Legacy function - not used after calibration mode changes.)
+    """
     ranked_items = fetch_ranked_items(user_id, topic_id)
-
     n = len(ranked_items)
     if n < 10:
         return
     mean = 50
     std_dev = 20
-
-    # Use a normal distribution to assign scores
     for idx, item in enumerate(ranked_items):
-        # Calculate percentile rank (0 to 1)
-        percentile = (n - idx - 1) / (n - 1) if n > 1 else 0.5  # Reverse the percentile for correct ordering
-        # Get z-score from percentile
+        percentile = (n - idx - 1) / (n - 1) if n > 1 else 0.5
         z_score = scipy.stats.norm.ppf(percentile)
-        # Map z-score to score range [0, 100]
         score = min(100, max(0, mean + z_score * std_dev))
-        # Insert score into the table
         supabase.table("Rankings").update({"score": score}).eq("ranking_id", item["ranking_id"]).execute()
 
 @app.post("/rerank")
@@ -534,13 +658,11 @@ def rerank_item(request: ItemRerankRequest):
     item_name = supabase.table("Items").select("*").eq("item_id", item_id).execute().data[0]["item_name"]
     topic_name = request.topic_name
 
-    # Fetch topic ID
     topic = supabase.table("Topics").select("*").eq("topic_name", topic_name).execute().data
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
     topic_id = topic[0]["topic_id"]
 
-    # Remove the item from current rankings
     current_ranking = supabase.table("Rankings").select("*").eq("item_id", item_id).eq("user_id", user_id).eq("topic_id", topic_id).execute().data
     if not current_ranking:
         raise HTTPException(status_code=404, detail="Item not found in rankings")
@@ -549,16 +671,13 @@ def rerank_item(request: ItemRerankRequest):
     prev_item_id = current_ranking["prev_item"]
     next_item_id = current_ranking["next_item"]
 
-    # Update adjacent rankings
     if prev_item_id:
         supabase.table("Rankings").update({"next_item": next_item_id}).eq("item_id", prev_item_id).execute()
     if next_item_id:
         supabase.table("Rankings").update({"prev_item": prev_item_id}).eq("item_id", next_item_id).execute()
 
-    # Delete the current ranking
     supabase.table("Rankings").delete().eq("item_id", item_id).execute()
 
-    # Reinsert the item using compare logic
     ranked_items = fetch_ranked_items(user_id, topic_id)
     if not ranked_items:
         new_ranking = {
@@ -572,7 +691,6 @@ def rerank_item(request: ItemRerankRequest):
         supabase.table("Rankings").insert(new_ranking).execute()
         return {"message": "Item reranked successfully as the first item.", "ranking": [item_id]}
     
-    # Augment rankings with item names
     rankings = []
     for rank in ranked_items:
         item = supabase.table("Items").select("item_name").eq("item_id", rank["item_id"]).execute().data
@@ -580,36 +698,23 @@ def rerank_item(request: ItemRerankRequest):
             rank["item_name"] = item[0]["item_name"]
         rankings.append(rank)
 
-    # Binary search-like comparison logic
     left, right = 0, len(ranked_items) - 1
     insertion_index = -1
-
     while left <= right:
         mid = (left + right) // 2
         current_item = rankings[mid]
-
         print(f"Is the item '{item_name}' better or worse than '{current_item['item_name']}'?")
         comparison_choice = input("Type 'better' or 'worse': ").strip().lower()
-
         if comparison_choice == "better":
             right = mid - 1
-            insertion_index = mid  # Insert before current
+            insertion_index = mid
         elif comparison_choice == "worse":
             left = mid + 1
-            insertion_index = left  # Insert after current
+            insertion_index = left
         else:
             print("Invalid input. Please type 'better' or 'worse'.")
-
-    # Update prev_item and next_item
-    new_prev_item_id = None
-    new_next_item_id = None
-
-    if insertion_index > 0:
-        new_prev_item_id = ranked_items[insertion_index - 1]["item_id"]
-    if insertion_index < len(ranked_items):
-        new_next_item_id = ranked_items[insertion_index]["item_id"]
-
-    # Insert the item into Rankings
+    new_prev_item_id = rankings[insertion_index - 1]["item_id"] if insertion_index > 0 else None
+    new_next_item_id = rankings[insertion_index]["item_id"] if insertion_index < len(rankings) else None
     new_ranking = {
         "user_id": user_id,
         "topic_id": topic_id,
@@ -619,23 +724,16 @@ def rerank_item(request: ItemRerankRequest):
         "score": None
     }
     supabase.table("Rankings").insert(new_ranking).execute()
-
-    # Update adjacent items
     if new_prev_item_id:
         supabase.table("Rankings").update({"next_item": item_id}).eq("item_id", new_prev_item_id).execute()
     if new_next_item_id:
         supabase.table("Rankings").update({"prev_item": item_id}).eq("item_id", new_next_item_id).execute()
-
-    # Distribute scores if there are 10+ items
-    distribute_scores_normal_curve(user_id, topic_id)
-
+    redistribute_initial_scores(user_id, topic_id)
     updated_rankings = fetch_ranked_items(user_id, topic_id)
-
     for rank in updated_rankings:
         item = supabase.table("Items").select("item_name").eq("item_id", rank["item_id"]).execute().data
         if item:
             rank["item_name"] = item[0]["item_name"]
-
     return {"message": "Item ranked successfully.", "ranking": updated_rankings}
 
 @app.post("/remove")
@@ -644,13 +742,11 @@ def remove_item(request: RemoveItemRequest):
     item_id = request.item_id
     topic_name = request.topic_name
 
-    # Fetch topic ID
     topic = supabase.table("Topics").select("*").eq("topic_name", topic_name).execute().data
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
     topic_id = topic[0]["topic_id"]
 
-    # Check if item exists in rankings
     current_ranking = supabase.table("Rankings").select("*").eq("item_id", item_id).eq("user_id", user_id).eq("topic_id", topic_id).execute().data
     if not current_ranking:
         raise HTTPException(status_code=404, detail="Item not found in rankings")
@@ -659,13 +755,11 @@ def remove_item(request: RemoveItemRequest):
     prev_item_id = current_ranking["prev_item"]
     next_item_id = current_ranking["next_item"]
 
-    # Update adjacent rankings
     if prev_item_id:
         supabase.table("Rankings").update({"next_item": next_item_id}).eq("item_id", prev_item_id).execute()
     if next_item_id:
         supabase.table("Rankings").update({"prev_item": prev_item_id}).eq("item_id", next_item_id).execute()
 
-    # Delete the current ranking
     supabase.table("Rankings").delete().eq("item_id", item_id).execute()
 
     return {"message": "Item removed successfully."}

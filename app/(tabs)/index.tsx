@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { StyleSheet, View, Text, Image, TouchableOpacity } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
+import { useColorScheme } from 'react-native';
 
 type ContentType = "Movies" | "Albums";
 
@@ -41,6 +42,8 @@ const CONTENT: Record<ContentType, ContentItem[]> = {
 
 export default function HomePage() {
   const [contentType, setContentType] = useState<ContentType>("Movies");
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
   const currentContent = CONTENT[contentType];
 
@@ -49,31 +52,35 @@ export default function HomePage() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]} edges={["bottom"]}>
       <View style={styles.content}>
         {/* Tab Buttons */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
             style={[
               styles.tabButton,
+              { backgroundColor: isDark ? '#1C1C1E' : '#f6f6f6' },
               contentType === "Movies" && styles.activeTabButton
             ]}
             onPress={() => setContentType("Movies")}
           >
             <Text style={[
               styles.tabText,
+              { color: isDark ? '#FFFFFF' : '#000000' },
               contentType === "Movies" && styles.activeTabText
             ]}>Movies</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
               styles.tabButton,
+              { backgroundColor: isDark ? '#1C1C1E' : '#f6f6f6' },
               contentType === "Albums" && styles.activeTabButton
             ]}
             onPress={() => setContentType("Albums")}
           >
             <Text style={[
               styles.tabText,
+              { color: isDark ? '#FFFFFF' : '#000000' },
               contentType === "Albums" && styles.activeTabText
             ]}>Albums</Text>
           </TouchableOpacity>
@@ -83,31 +90,31 @@ export default function HomePage() {
         <View style={styles.itemsContainer}>
           {/* First Item */}
           <View style={styles.itemContainer}>
-            <View style={styles.imageContainer}>
+            <View style={[styles.imageContainer, { backgroundColor: isDark ? '#1C1C1E' : '#f6f6f6' }]}>
               <Image
                 source={currentContent[0].image}
                 style={styles.image}
                 resizeMode="cover"
               />
             </View>
-            <Text style={styles.title}>{currentContent[0].title}</Text>
+            <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>{currentContent[0].title}</Text>
             {isAlbum(currentContent[0]) && (
-              <Text style={styles.artist}>{currentContent[0].artist}</Text>
+              <Text style={[styles.artist, { color: isDark ? '#8E8E93' : '#666' }]}>{currentContent[0].artist}</Text>
             )}
           </View>
 
           {/* Second Item */}
           <View style={styles.itemContainer}>
-            <View style={styles.imageContainer}>
+            <View style={[styles.imageContainer, { backgroundColor: isDark ? '#1C1C1E' : '#f6f6f6' }]}>
               <Image
                 source={currentContent[1].image}
                 style={styles.image}
                 resizeMode="cover"
               />
             </View>
-            <Text style={styles.title}>{currentContent[1].title}</Text>
+            <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>{currentContent[1].title}</Text>
             {isAlbum(currentContent[1]) && (
-              <Text style={styles.artist}>{currentContent[1].artist}</Text>
+              <Text style={[styles.artist, { color: isDark ? '#8E8E93' : '#666' }]}>{currentContent[1].artist}</Text>
             )}
           </View>
         </View>
@@ -119,7 +126,6 @@ export default function HomePage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
   },
   content: {
     flex: 1,
@@ -136,15 +142,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#f6f6f6',
   },
   activeTabButton: {
-    backgroundColor: 'black',
+    backgroundColor: '#007AFF',
   },
   tabText: {
     fontSize: 16,
     fontWeight: '500',
-    color: 'black',
   },
   activeTabText: {
     color: 'white',
@@ -165,7 +169,6 @@ const styles = StyleSheet.create({
     height: 224,
     borderRadius: 13,
     overflow: 'hidden',
-    backgroundColor: '#f6f6f6',
   },
   image: {
     width: '100%',
@@ -179,7 +182,6 @@ const styles = StyleSheet.create({
   },
   artist: {
     fontSize: 14,
-    color: '#666',
     marginTop: 5,
     textAlign: 'center',
   },

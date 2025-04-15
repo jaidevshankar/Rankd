@@ -1,78 +1,117 @@
 "use client"
 
 import { useState } from "react"
-import { StyleSheet, View, Text, Image, TouchableOpacity, ScrollView } from "react-native"
-import { Ionicons } from "@expo/vector-icons"
+import { StyleSheet, View, Text, Image, TouchableOpacity } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-type TabType = "Movies" | "Albums";
+type ContentType = "Movies" | "Albums";
+
+type MovieItem = {
+  id: string;
+  title: string;
+  image: any;
+};
+
+type AlbumItem = {
+  id: string;
+  title: string;
+  artist: string;
+  image: any;
+};
+
+type ContentItem = MovieItem | AlbumItem;
 
 // Define placeholder images
 const PLACEHOLDER_IMAGES = {
   movie: require('../../assets/images/icon.png'),
+  album: require('../../assets/images/icon.png'),
+} as const;
+
+// Sample content data
+const CONTENT: Record<ContentType, ContentItem[]> = {
+  Movies: [
+    { id: '1', title: 'Akira', image: PLACEHOLDER_IMAGES.movie },
+    { id: '2', title: 'Everything Everywhere All at Once', image: PLACEHOLDER_IMAGES.movie },
+  ],
+  Albums: [
+    { id: '1', title: 'Thriller', artist: 'Michael Jackson', image: PLACEHOLDER_IMAGES.album },
+    { id: '2', title: 'Abbey Road', artist: 'The Beatles', image: PLACEHOLDER_IMAGES.album },
+  ],
 } as const;
 
 export default function HomePage() {
-  const [selectedTab, setSelectedTab] = useState<TabType>("Movies")
+  const [contentType, setContentType] = useState<ContentType>("Movies");
+
+  const currentContent = CONTENT[contentType];
+
+  const isAlbum = (item: ContentItem): item is AlbumItem => {
+    return 'artist' in item;
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
-      {/* Content Tabs */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[
-            styles.tabButton,
-            { backgroundColor: selectedTab === "Albums" ? '#f6f6f6' : '#f6f6f6' }
-          ]}
-          onPress={() => setSelectedTab("Albums")}
-        >
-          <Text style={styles.tabText}>Albums</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.tabButton,
-            { backgroundColor: selectedTab === "Movies" ? 'black' : '#f6f6f6' }
-          ]}
-          onPress={() => setSelectedTab("Movies")}
-        >
-          <Text style={[
-            styles.tabText,
-            { color: selectedTab === "Movies" ? 'white' : 'black' }
-          ]}>Movies</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.addButton}>
-          <Ionicons name="add" size={20} color="#000" />
-        </TouchableOpacity>
+      <View style={styles.content}>
+        {/* Tab Buttons */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              contentType === "Movies" && styles.activeTabButton
+            ]}
+            onPress={() => setContentType("Movies")}
+          >
+            <Text style={[
+              styles.tabText,
+              contentType === "Movies" && styles.activeTabText
+            ]}>Movies</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              contentType === "Albums" && styles.activeTabButton
+            ]}
+            onPress={() => setContentType("Albums")}
+          >
+            <Text style={[
+              styles.tabText,
+              contentType === "Albums" && styles.activeTabText
+            ]}>Albums</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Content Container */}
+        <View style={styles.itemsContainer}>
+          {/* First Item */}
+          <View style={styles.itemContainer}>
+            <View style={styles.imageContainer}>
+              <Image
+                source={currentContent[0].image}
+                style={styles.image}
+                resizeMode="cover"
+              />
+            </View>
+            <Text style={styles.title}>{currentContent[0].title}</Text>
+            {isAlbum(currentContent[0]) && (
+              <Text style={styles.artist}>{currentContent[0].artist}</Text>
+            )}
+          </View>
+
+          {/* Second Item */}
+          <View style={styles.itemContainer}>
+            <View style={styles.imageContainer}>
+              <Image
+                source={currentContent[1].image}
+                style={styles.image}
+                resizeMode="cover"
+              />
+            </View>
+            <Text style={styles.title}>{currentContent[1].title}</Text>
+            {isAlbum(currentContent[1]) && (
+              <Text style={styles.artist}>{currentContent[1].artist}</Text>
+            )}
+          </View>
+        </View>
       </View>
-
-      {/* Main Content */}
-      <ScrollView style={styles.content}>
-        <Text style={styles.title}>Pick the Better Movie</Text>
-
-        {/* Movie 1 */}
-        <View style={styles.movieContainer}>
-          <View style={styles.movieImageContainer}>
-            <Image
-              source={PLACEHOLDER_IMAGES.movie}
-              style={styles.movieImage}
-              resizeMode="cover"
-            />
-          </View>
-          <Text style={styles.movieTitle}>Akira</Text>
-        </View>
-
-        {/* Movie 2 */}
-        <View style={styles.movieContainer}>
-          <View style={styles.movieImageContainer}>
-            <Image
-              source={PLACEHOLDER_IMAGES.movie}
-              style={styles.movieImage}
-              resizeMode="cover"
-            />
-          </View>
-          <Text style={styles.movieTitle}>Everything Everywhere All at Once</Text>
-        </View>
-      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -82,56 +121,66 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'white',
   },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
   tabContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
+    paddingVertical: 16,
     gap: 8,
-    paddingHorizontal: 16,
-    marginTop: 16,
+    marginTop: 40,
   },
   tabButton: {
     paddingHorizontal: 24,
     paddingVertical: 8,
     borderRadius: 20,
+    backgroundColor: '#f6f6f6',
+  },
+  activeTabButton: {
+    backgroundColor: 'black',
   },
   tabText: {
+    fontSize: 16,
+    fontWeight: '500',
     color: 'black',
   },
-  addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f6f6f6',
-    alignItems: 'center',
-    justifyContent: 'center',
+  activeTabText: {
+    color: 'white',
   },
-  content: {
-    paddingHorizontal: 16,
-    marginTop: 32,
+  itemsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 32,
+  },
+  itemContainer: {
+    width: '100%',
+    maxWidth: 280,
+    alignItems: 'center',
+  },
+  imageContainer: {
+    width: 224,
+    height: 224,
+    borderRadius: 13,
+    overflow: 'hidden',
+    backgroundColor: '#f6f6f6',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
   },
   title: {
-    fontSize: 30,
-    fontWeight: 'bold',
-    marginBottom: 24,
-  },
-  movieContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  movieImageContainer: {
-    width: 192,
-    height: 256,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  movieImage: {
-    width: 192,
-    height: 256,
-    borderRadius: 6,
-  },
-  movieTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 10,
     textAlign: 'center',
   },
-})
+  artist: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+    textAlign: 'center',
+  },
+});

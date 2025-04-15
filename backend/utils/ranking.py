@@ -669,3 +669,10 @@ def remove_item(request: RemoveItemRequest):
     supabase.table("Rankings").delete().eq("item_id", item_id).execute()
 
     return {"message": "Item removed successfully."}
+
+
+
+
+
+
+

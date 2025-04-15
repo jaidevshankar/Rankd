@@ -1,52 +1,78 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useColorScheme } from 'react-native';
+
+// Sample data - in a real app, this would come from your backend
+const FRIENDS_DATA: Friend[] = [
+  { id: '1', name: 'John Doe', status: 'Online' as const },
+  { id: '2', name: 'Jane Smith', status: 'Offline' as const },
+  { id: '3', name: 'Mike Johnson', status: 'Online' as const },
+  { id: '4', name: 'Sarah Williams', status: 'Offline' as const },
+  { id: '5', name: 'David Brown', status: 'Online' as const },
+  { id: '6', name: 'Emily Davis', status: 'Offline' as const },
+  { id: '7', name: 'Robert Wilson', status: 'Online' as const },
+  { id: '8', name: 'Lisa Anderson', status: 'Offline' as const },
+];
 
 type Friend = {
   id: string;
   name: string;
-  avatar: string;
+  status: 'Online' | 'Offline';
 };
-
-// Sample friend data - in a real app, this would come from your backend
-const initialFriends: Friend[] = [
-  { id: '1', name: 'Leon', avatar: 'https://i.pravatar.cc/150?img=1' },
-  { id: '2', name: 'Jai', avatar: 'https://i.pravatar.cc/150?img=2' },
-  { id: '3', name: 'Samarth', avatar: 'https://i.pravatar.cc/150?img=3' },
-  { id: '4', name: 'Neel', avatar: 'https://i.pravatar.cc/150?img=4' },
-];
 
 export default function PeopleScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [friends, setFriends] = useState<Friend[]>(initialFriends);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
-  const filteredFriends = friends.filter(friend =>
+  const filteredFriends = FRIENDS_DATA.filter(friend =>
     friend.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const renderFriend = ({ item }: { item: Friend }) => (
-    <View style={styles.friendItem}>
-      <Image source={{ uri: item.avatar }} style={styles.avatar} />
-      <Text style={styles.friendName}>{item.name}</Text>
-    </View>
+  const renderItem = ({ item }: { item: Friend }) => (
+    <TouchableOpacity 
+      style={[
+        styles.friendItem,
+        { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }
+      ]}
+    >
+      <View style={styles.friendInfo}>
+        <Text style={[styles.friendName, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+          {item.name}
+        </Text>
+        <Text style={[
+          styles.friendStatus,
+          { color: item.status === 'Online' ? '#34C759' : '#8E8E93' }
+        ]}>
+          {item.status}
+        </Text>
+      </View>
+    </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Friends</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+      <View style={styles.searchContainer}>
         <TextInput
-          style={styles.searchInput}
+          style={[
+            styles.searchInput,
+            { 
+              backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7',
+              color: isDark ? '#FFFFFF' : '#000000'
+            }
+          ]}
           placeholder="Search friends..."
+          placeholderTextColor={isDark ? '#8E8E93' : '#8E8E93'}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
       </View>
       <FlatList
         data={filteredFriends}
-        renderItem={renderFriend}
+        renderItem={renderItem}
         keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={styles.friendsList}
       />
     </SafeAreaView>
   );
@@ -55,43 +81,36 @@ export default function PeopleScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
   },
-  header: {
+  searchContainer: {
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 16,
   },
   searchInput: {
-    backgroundColor: '#F2F2F7',
-    padding: 12,
+    height: 40,
     borderRadius: 10,
+    paddingHorizontal: 16,
     fontSize: 16,
   },
-  listContainer: {
+  friendsList: {
     padding: 16,
   },
   friendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
   },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
+  friendInfo: {
+    flex: 1,
   },
   friendName: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  friendStatus: {
+    fontSize: 14,
   },
 });
 

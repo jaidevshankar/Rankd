@@ -327,6 +327,12 @@ def get_access_token():
         return response.json().get("access_token")
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=400, detail=f"Error fetching access token: {str(e)}")
+    
+@app.get("/rankings")
+def get_rankings(topic: str):
+    # Fetch rankings for the specified topic
+    rankings = fetch_ranked_items(1, topic)  # Replace 1 with actual user_id
+    return {"ranking": rankings}
 
 def fetch_game_data(game_id: str):
     """

@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
+import axios from 'axios';
 
 // Sample data - in a real app, this would come from your backend
 const RANKINGS_DATA = {
@@ -28,19 +29,72 @@ type RankingItem = {
   rating: number;
   image: any;
   artist?: string;
+  topic: string;
 };
 
 export default function RankingsScreen() {
   const [activeTab, setActiveTab] = useState<'movies' | 'albums'>('movies');
+  const [rankings, setRankings] = useState<RankingItem[]>([]);
+  const [selectedItem, setSelectedItem] = useState<RankingItem | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+
+  useEffect(() => {
+    console.log('Fetching rankings for tab:', activeTab);
+    fetchRankings();
+  }, [activeTab]);
+
+  const fetchRankings = async () => {
+    try {
+      setIsLoading(true);
+      console.log('Making API call to fetch rankings...');
+      const response = await axios.get(`http://localhost:8000/rankings?topic=${activeTab}`);
+      console.log('Received rankings:', response.data);
+      setRankings(response.data.ranking);
+    } catch (error) {
+      console.error('Error fetching rankings:', error);
+      Alert.alert('Error', 'Failed to fetch rankings. Please check your connection.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleItemClick = async (item: RankingItem) => {
+    try {
+      console.log('Selected item:', item);
+      setSelectedItem(item);
+      setIsLoading(true);
+      
+      console.log('Making API call to update ranking...');
+      const response = await axios.post('http://localhost:8000/compare', {
+        user_id: 1,
+        item_id: item.id,
+        topic_name: activeTab === 'movies' ? 'Movies' : 'Albums'
+      });
+
+      console.log('Received updated rankings:', response.data);
+      setRankings(response.data.ranking);
+      setSelectedItem(null);
+      
+      Alert.alert('Success', 'Ranking updated successfully!');
+    } catch (error) {
+      console.error('Error updating ranking:', error);
+      Alert.alert('Error', 'Failed to update ranking. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const renderItem = ({ item }: { item: RankingItem }) => (
     <TouchableOpacity 
       style={[
         styles.rankingItem,
-        { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }
+        { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' },
+        selectedItem?.id === item.id && { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' }
       ]}
+      onPress={() => handleItemClick(item)}
+      disabled={isLoading}
     >
       <View style={styles.rankContainer}>
         <Text style={[styles.rankText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
@@ -66,6 +120,11 @@ export default function RankingsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      )}
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[
@@ -101,10 +160,15 @@ export default function RankingsScreen() {
         </TouchableOpacity>
       </View>
       <FlatList
-        data={RANKINGS_DATA[activeTab]}
+        data={rankings}
         renderItem={renderItem}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.rankingsList}
+        ListEmptyComponent={
+          <Text style={[styles.emptyText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+            No rankings available
+          </Text>
+        }
       />
     </SafeAreaView>
   );
@@ -176,5 +240,26 @@ const styles = StyleSheet.create({
   rankingRating: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 20,
+    fontSize: 16,
   },
 });

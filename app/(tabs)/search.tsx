@@ -1,68 +1,83 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
-
-// Sample data - in a real app, this would come from your backend
-const SAMPLE_DATA = {
-  movies: [
-    { id: '1', title: 'Akira', type: 'movie', image: require('../../assets/images/icon.png') },
-    { id: '2', title: 'Everything Everywhere All at Once', type: 'movie', image: require('../../assets/images/icon.png') },
-    { id: '3', title: 'Inception', type: 'movie', image: require('../../assets/images/icon.png') },
-    { id: '4', title: 'The Matrix', type: 'movie', image: require('../../assets/images/icon.png') },
-  ],
-  albums: [
-    { id: '1', title: 'Thriller', artist: 'Michael Jackson', type: 'album', image: require('../../assets/images/icon.png') },
-    { id: '2', title: 'Abbey Road', artist: 'The Beatles', type: 'album', image: require('../../assets/images/icon.png') },
-    { id: '3', title: 'Dark Side of the Moon', artist: 'Pink Floyd', type: 'album', image: require('../../assets/images/icon.png') },
-    { id: '4', title: 'Rumours', artist: 'Fleetwood Mac', type: 'album', image: require('../../assets/images/icon.png') },
-  ],
-};
-
-type SearchItem = {
-  id: string;
-  title: string;
-  type: 'movie' | 'album';
-  image: any;
-  artist?: string;
-};
+import { searchService, SearchResult } from '../services/search';
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [results, setResults] = useState<SearchItem[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
   useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setResults([]);
-      return;
-    }
+    const search = async () => {
+      if (searchQuery.trim() === '') {
+        setResults([]);
+        return;
+      }
 
-    const query = searchQuery.toLowerCase();
-    const allItems = [...SAMPLE_DATA.movies, ...SAMPLE_DATA.albums];
-    const filtered = allItems.filter(item => 
-      item.title.toLowerCase().includes(query) ||
-      (item.type === 'album' && (item as any).artist.toLowerCase().includes(query))
-    );
-    setResults(filtered);
+      try {
+        setLoading(true);
+        setError(null);
+        const searchResults = await searchService.searchAll(searchQuery);
+        setResults(searchResults);
+      } catch (err) {
+        setError('Failed to search. Please try again.');
+        console.error('Search error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Add a small delay to prevent too many API calls
+    const timeoutId = setTimeout(search, 500);
+    return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  const renderItem = ({ item }: { item: SearchItem }) => (
+  const renderItem = ({ item }: { item: SearchResult }) => (
     <TouchableOpacity 
       style={[
         styles.resultItem,
-        { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }
+        { backgroundColor: '#1C1C1E' }
       ]}
     >
-      <Image source={item.image} style={styles.resultImage} />
+      {item.image ? (
+        <Image 
+          source={{ uri: item.image }} 
+          style={styles.resultImage} 
+          defaultSource={require('../../assets/images/icon.png')}
+        />
+      ) : (
+        <Image 
+          source={require('../../assets/images/icon.png')} 
+          style={styles.resultImage} 
+        />
+      )}
       <View style={styles.resultTextContainer}>
-        <Text style={[styles.resultTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-          {item.title}
-        </Text>
-        {item.type === 'album' && (
-          <Text style={[styles.resultArtist, { color: isDark ? '#8E8E93' : '#666' }]}>
-            {(item as any).artist}
+        <View style={styles.titleContainer}>
+          <Text style={[styles.resultTitle, { color: '#FFFFFF' }]}>
+            {item.title}
+          </Text>
+          <View style={styles.typeBadge}>
+            <Text style={styles.typeText}>{item.type}</Text>
+          </View>
+        </View>
+        {item.artist && (
+          <Text style={[styles.resultArtist, { color: '#8E8E93' }]}>
+            {item.artist}
+          </Text>
+        )}
+        {item.rating && (
+          <Text style={[styles.resultRating, { color: '#FFD700' }]}>
+            {item.rating.toFixed(1)} ★
+          </Text>
+        )}
+        {item.year && (
+          <Text style={[styles.resultYear, { color: '#8E8E93' }]}>
+            {item.year}
           </Text>
         )}
       </View>
@@ -70,28 +85,50 @@ export default function SearchScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#000000' }]}>
       <View style={styles.searchContainer}>
         <TextInput
           style={[
             styles.searchInput,
             { 
-              backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7',
-              color: isDark ? '#FFFFFF' : '#000000'
+              backgroundColor: '#1C1C1E',
+              color: '#FFFFFF',
+              borderColor: '#FFD700'
             }
           ]}
-          placeholder="Search movies and albums..."
-          placeholderTextColor={isDark ? '#8E8E93' : '#8E8E93'}
+          placeholder="Search movies, TV shows, albums, and restaurants..."
+          placeholderTextColor="#8E8E93"
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
       </View>
-      <FlatList
-        data={results}
-        renderItem={renderItem}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.resultsList}
-      />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FFD700" />
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={[styles.errorText, { color: '#FFFFFF' }]}>
+            {error}
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={results}
+          renderItem={renderItem}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.resultsList}
+          ListEmptyComponent={
+            searchQuery ? (
+              <View style={styles.emptyContainer}>
+                <Text style={[styles.emptyText, { color: '#FFFFFF' }]}>
+                  No results found
+                </Text>
+              </View>
+            ) : null
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -108,6 +145,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 16,
     fontSize: 16,
+    borderWidth: 2,
   },
   resultsList: {
     paddingHorizontal: 16,
@@ -135,5 +173,56 @@ const styles = StyleSheet.create({
   },
   resultArtist: {
     fontSize: 14,
+    marginBottom: 4,
+  },
+  resultRating: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  resultYear: {
+    fontSize: 14,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 20,
+    fontSize: 16,
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  typeBadge: {
+    backgroundColor: '#2C2C2E',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  typeText: {
+    color: '#8E8E93',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

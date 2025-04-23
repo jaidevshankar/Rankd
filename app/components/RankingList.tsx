@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import { rankingService, RankingResponse } from '../services/api';
+import axios from 'axios';
+import { FontAwesome } from '@expo/vector-icons';
 
 interface RankingListProps {
   topic: string;
@@ -10,24 +12,41 @@ interface RankingListProps {
 export default function RankingList({ topic, userId }: RankingListProps) {
   const [rankings, setRankings] = useState<RankingResponse['ranking']>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadRankings();
-  }, [topic]);
+  }, [topic, userId]);
 
   const loadRankings = async () => {
     try {
       setLoading(true);
-      const response = await rankingService.getRankings(topic);
-      setRankings(response.ranking);
+      const response = await rankingService.getRankings(topic, userId);
+      setRankings(response.ranking || []);
       setError(null);
     } catch (err) {
-      setError('Failed to load rankings');
-      console.error(err);
+      if (axios.isAxiosError(err)) {
+        if (err.code === 'ERR_NETWORK') {
+          setError('Cannot connect to the server. Make sure the backend is running and your network is configured correctly.');
+        } else if (err.response) {
+          setError(`Server error: ${err.response.status} - ${err.response.data?.message || 'Unknown error'}`);
+        } else {
+          setError('Network error. Please check your connection.');
+        }
+      } else {
+        setError('Failed to load rankings');
+      }
+      console.error('Error loading rankings:', err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadRankings();
   };
 
   const handleCompare = async (itemId: string) => {
@@ -37,11 +56,13 @@ export default function RankingList({ topic, userId }: RankingListProps) {
         item_id: itemId,
         topic_name: topic
       });
-      setRankings(response.ranking);
+      if (response.ranking) {
+        setRankings(response.ranking);
+      }
       setError(null);
     } catch (err) {
       setError('Failed to compare items');
-      console.error(err);
+      console.error('Error comparing items:', err);
     }
   };
 
@@ -53,15 +74,15 @@ export default function RankingList({ topic, userId }: RankingListProps) {
         topic_name: topic
       });
       // Refresh rankings after removal
-      loadRankings();
+      await loadRankings();
       setError(null);
     } catch (err) {
       setError('Failed to remove item');
-      console.error(err);
+      console.error('Error removing item:', err);
     }
   };
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#FFD700" />
@@ -69,7 +90,7 @@ export default function RankingList({ topic, userId }: RankingListProps) {
     );
   }
 
-  if (error) {
+  if (error && !rankings.length) {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>{error}</Text>
@@ -83,26 +104,73 @@ export default function RankingList({ topic, userId }: RankingListProps) {
     );
   }
 
+  if (!rankings.length) {
+    return (
+      <ScrollView 
+        style={styles.container}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#FFD700"
+          />
+        }
+      >
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No rankings found for {topic}</Text>
+          <Text style={styles.emptySubtext}>Add items from the search tab to start building your ranking</Text>
+        </View>
+      </ScrollView>
+    );
+  }
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#FFD700"
+        />
+      }
+    >
+      {error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{error}</Text>
+          <TouchableOpacity onPress={() => setError(null)}>
+            <Text style={styles.dismissText}>Dismiss</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      
       {rankings.map((item, index) => (
         <View key={item.item_id} style={styles.itemContainer}>
           <View style={styles.rankContainer}>
             <Text style={styles.rankNumber}>{index + 1}</Text>
           </View>
           <View style={styles.itemInfo}>
-            <Text style={styles.itemName}>{item.item_name}</Text>
+            <Text style={styles.itemName}>{item.item_name || `Item ${item.item_id}`}</Text>
             <View style={styles.detailsContainer}>
-              {item.score !== null && (
+              {item.score !== null && item.score !== undefined && (
                 <View style={styles.scoreContainer}>
                   <Text style={styles.scoreLabel}>Score:</Text>
-                  <Text style={styles.scoreValue}>{item.score.toFixed(2)}</Text>
+                  <Text style={styles.scoreValue}>
+                    {typeof item.score === 'number' ? item.score.toFixed(2) : '—'}
+                  </Text>
                 </View>
               )}
               {item.category && (
                 <View style={styles.categoryContainer}>
                   <Text style={styles.categoryLabel}>Category:</Text>
-                  <Text style={styles.categoryValue}>{item.category}</Text>
+                  <Text style={[
+                    styles.categoryValue,
+                    item.category === 'Loved' && styles.lovedCategory,
+                    item.category === 'Liked' && styles.likedCategory,
+                    item.category === 'Disliked' && styles.dislikedCategory
+                  ]}>
+                    {item.category}
+                  </Text>
                 </View>
               )}
             </View>
@@ -110,15 +178,15 @@ export default function RankingList({ topic, userId }: RankingListProps) {
           <View style={styles.buttonContainer}>
             <TouchableOpacity 
               onPress={() => handleCompare(item.item_id.toString())}
-              style={styles.compareButton}
+              style={styles.iconButton}
             >
-              <Text style={styles.buttonText}>Compare</Text>
+              <FontAwesome name="exchange" size={14} color="#FFFFFF" />
             </TouchableOpacity>
             <TouchableOpacity 
               onPress={() => handleRemove(item.item_id.toString())}
-              style={styles.removeButton}
+              style={[styles.iconButton, styles.removeButton]}
             >
-              <Text style={styles.buttonText}>Remove</Text>
+              <FontAwesome name="trash" size={14} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </View>
@@ -151,6 +219,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16,
   },
+  errorBanner: {
+    backgroundColor: 'rgba(255, 59, 48, 0.2)',
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  errorBannerText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    flex: 1,
+  },
+  dismissText: {
+    color: '#FFD700',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   retryButton: {
     backgroundColor: '#FFD700',
     paddingHorizontal: 16,
@@ -160,6 +248,23 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: '#1C1C1E',
     fontWeight: '600',
+  },
+  emptyContainer: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    color: '#8E8E93',
+    fontSize: 14,
+    textAlign: 'center',
   },
   itemContainer: {
     flexDirection: 'row',
@@ -224,25 +329,34 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     fontSize: 14,
   },
+  lovedCategory: {
+    color: '#4CD964', // Green
+  },
+  likedCategory: {
+    color: '#5AC8FA', // Blue
+  },
+  dislikedCategory: {
+    color: '#FF9500', // Orange
+  },
   buttonContainer: {
     flexDirection: 'row',
     gap: 8,
+    justifyContent: 'flex-end',
   },
-  compareButton: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+  iconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#2C2C2E',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   removeButton: {
-    backgroundColor: '#FF3B30',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    backgroundColor: '#3A3A3C',
   },
   buttonText: {
-    color: '#1C1C1E',
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: '600',
-    fontSize: 14,
-  },
+  }
 }); 

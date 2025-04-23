@@ -504,16 +504,40 @@ def get_access_token():
         raise HTTPException(status_code=400, detail=f"Error fetching access token: {str(e)}")
     
 @app.get("/rankings")
-def get_rankings(topic: str):
+def get_rankings(topic: str, user_id: int = 1):
+    """
+    Get rankings for a specific topic and user.
+    
+    Parameters:
+    - topic (str): The name of the topic
+    - user_id (int): The user ID (defaults to 1 for testing)
+    
+    Returns:
+    - Dict containing ranking array with item data
+    """
     # First get the topic_id from the topic_name
     topic_data = supabase.table("Topics").select("topic_id").eq("topic_name", topic).execute().data
     if not topic_data:
         raise HTTPException(status_code=404, detail=f"Topic '{topic}' not found")
     topic_id = topic_data[0]["topic_id"]
     
-    # Fetch rankings for the specified topic
-    rankings = fetch_ranked_items(1, topic_id)  # Replace 1 with actual user_id
-    return {"ranking": rankings}
+    # Fetch rankings for the specified topic and user
+    rankings = fetch_ranked_items(user_id, topic_id)
+    
+    # Enhance the response with additional item details that might be needed by frontend
+    for item in rankings:
+        # Make sure score is a float with 2 decimal places for consistent frontend display
+        if item["score"] is not None:
+            item["score"] = round(float(item["score"]), 2)
+        
+        # Ensure category is included
+        if "category" not in item or item["category"] is None:
+            # Try to fetch category from Items table if missing
+            item_data = supabase.table("Items").select("category").eq("item_id", item["item_id"]).execute().data
+            if item_data and item_data[0].get("category"):
+                item["category"] = item_data[0]["category"]
+    
+    return {"message": "Rankings retrieved successfully", "ranking": rankings}
 
 def fetch_game_data(game_id: str):
     """
@@ -613,29 +637,78 @@ def fetch_item_data(topic_name: str, item_id: str):
 
     return topic_apis[topic_name](item_id)
 
-# Fetch rankings in linked list order (unchanged)
+# Fetch rankings in linked list order
 def fetch_ranked_items(user_id: int, topic_id: int):
+    """
+    Fetch items ranked by a user for a specific topic in linked list order.
+    - Items are ordered by the prev_item/next_item linked list structure
+    - For each item, we fetch its name and category from the Items table
+    - Returns items in descending order of rank (best items first)
+    """
+    # Get all rankings for this user and topic
     ranked_items = supabase.table("Rankings").select("*").eq("user_id", user_id).eq("topic_id", topic_id).execute().data
     if not ranked_items:
         return []
 
+    # Build a map of item_id to ranking for faster lookups
     id_to_ranking = {item["item_id"]: item for item in ranked_items}
-    head = next((item for item in ranked_items if item["prev_item"] is None), None)
+    
+    # First, try to find an item with no next_item (the best item)
+    head = next((item for item in ranked_items if item["next_item"] is None), None)
+    
+    # If no best item is found, try finding an item with no prev_item (worst item)
+    # and then traverse the list to the best item
     if not head:
-        return []
-
+        worst_item = next((item for item in ranked_items if item["prev_item"] is None), None)
+        if worst_item:
+            # Traverse to the best item (furthest next_item) starting from the worst
+            current = worst_item
+            visited = set([current["item_id"]])
+            while current["next_item"] and current["next_item"] in id_to_ranking and current["next_item"] not in visited:
+                next_id = current["next_item"]
+                current = id_to_ranking[next_id]
+                visited.add(current["item_id"])
+                if not current["next_item"]:
+                    head = current
+                    break
+        else:
+            # If we can't determine the structure, use first item as head
+            if ranked_items:
+                head = ranked_items[0]
+                # Update to mark it as having no next_item
+                supabase.table("Rankings").update({"next_item": None}).eq("ranking_id", head["ranking_id"]).execute()
+            else:
+                return []
+    
+    # Traverse the linked list backwards from best to worst
     ordered_rankings = []
     current = head
-    while current:
+    visited_ids = set()  # To prevent infinite loops in case of circular references
+    
+    while current and current["item_id"] not in visited_ids:
+        # Mark this item as visited
+        visited_ids.add(current["item_id"])
+        
+        # Fetch item details from Items table
         item_data = supabase.table("Items").select("item_name, category").eq("item_id", current["item_id"]).execute().data
-        # CHANGE: Also attach category from Items table here.
+        
+        # Add item details to the ranking object
         if item_data:
             current["item_name"] = item_data[0]["item_name"]
             current["category"] = item_data[0].get("category", None)
         else:
+            # Fallback if item not found
             current["item_name"] = f"Item {current['item_id']}"
+        
+        # Add to ordered list
         ordered_rankings.append(current)
-        current = id_to_ranking.get(current["next_item"])
+        
+        # Move to previous item in the linked list (worse item)
+        prev_id = current["prev_item"]
+        if prev_id and prev_id in id_to_ranking and prev_id not in visited_ids:
+            current = id_to_ranking[prev_id]
+        else:
+            current = None
 
     return ordered_rankings
 
@@ -656,27 +729,29 @@ def compare_item(request: ItemComparisonRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # CHANGE: Check if the item already exists in Items table.
+    # Check if the item already exists in Items table.
     existing_item = supabase.table("Items").select("*").eq("item_name", item_data["item_name"]).execute().data
-    # If item does not exist, insert it.
+    
+    # Process the item and get item info
     if not existing_item:
-        # CHANGE: If user is in calibration phase (<10 items), ask for category.
+        # If user is in calibration phase (<10 items), we'll handle differently
         ranked_items = fetch_ranked_items(user_id, topic_id)
         if len(ranked_items) < 10:
-            user_category = input("Calibration: Type 'Loved', 'Liked', or 'Disliked' for this new item: ").strip().capitalize()
-            if user_category not in ["Loved", "Liked", "Disliked"]:
-                raise HTTPException(status_code=400, detail="Category must be Loved, Liked, or Disliked")
-            # Set default score based on category for first item in that category.
-            default_scores = {"Loved": 8.5, "Liked": 5.5, "Disliked": 2.0}
-            initial_score = default_scores[user_category]
+            # Instead of asking for category in terminal, return a flag to show calibration UI
             new_item = {
                 "topic_id": topic_id,
                 "item_name": item_data["item_name"],
                 "created_by": user_id,
-                "category": user_category  # CHANGE: store category
             }
             supabase.table("Items").insert(new_item).execute()
             existing_item = supabase.table("Items").select("*").eq("item_name", item_data["item_name"]).execute().data
+            
+            return {
+                "status": "calibration_needed",
+                "message": "Need category selection for calibration",
+                "item_id": existing_item[0]["item_id"],
+                "item_name": existing_item[0]["item_name"]
+            }
         else:
             # In Elo mode, category is no longer needed; insert without it.
             new_item = {
@@ -690,163 +765,428 @@ def compare_item(request: ItemComparisonRequest):
     item_info = {
         "id": existing_item[0]["item_id"],
         "name": existing_item[0]["item_name"],
-        # CHANGE: In calibration, score is not set until comparison; in Elo mode, we start with a default.
         "score": existing_item[0].get("score", None)
     }
 
     ranked_items = fetch_ranked_items(user_id, topic_id)
     total_items = len(ranked_items)
 
-    # ------------------- Calibration Mode (<10 items) ------------------- #
+    # Calibration Mode (<10 items)
     if total_items < 10:
-        # Filter only items in the same category as the new item.
-        new_category = existing_item[0].get("category", None)
-        # If category not set (should not happen), ask user.
-        if not new_category:
-            new_category = input("Calibration: Type 'Loved', 'Liked', or 'Disliked' for this new item: ").strip().capitalize()
-            if new_category not in ["Loved", "Liked", "Disliked"]:
-                raise HTTPException(status_code=400, detail="Category must be Loved, Liked, or Disliked")
-        same_cat_items = [it for it in ranked_items if it.get("category") == new_category]
-        # If no items in this category exist yet, insert directly with default score.
-        if not same_cat_items:
-            default_scores = {"Loved": 8.5, "Liked": 5.5, "Disliked": 2.0}
-            new_score = default_scores[new_category]
-            new_ranking = {
-                "user_id": user_id,
-                "topic_id": topic_id,
-                "item_id": item_info["id"],
-                "prev_item": None,
-                "next_item": None,
-                "score": new_score
+        # For calibration, we need category first before comparisons
+        return {
+            "status": "calibration_needed",
+            "message": "Need category selection for calibration",
+            "item_id": item_info["id"],
+            "item_name": item_info["name"]
+        }
+    
+    # Elo Mode (>=10 items)
+    # Return the first comparison question instead of showing in terminal
+    if ranked_items:
+        comparison_item = ranked_items[len(ranked_items) // 2]  # Start with middle item
+        return {
+            "status": "comparison_needed",
+            "message": "Compare with existing item",
+            "new_item": {
+                "id": item_info["id"],
+                "name": item_info["name"]
+            },
+            "comparison_item": {
+                "id": comparison_item["item_id"],
+                "name": comparison_item["item_name"]
             }
-            supabase.table("Rankings").insert(new_ranking).execute()
-            ranked_items = fetch_ranked_items(user_id, topic_id)
-            # If this was the 10th overall item, redistribute calibration scores.
-            if len(ranked_items) == 10:
-                redistribute_initial_scores(user_id, topic_id)
-            return {"message": "Item added in calibration mode.", "ranking": ranked_items}
-        # Otherwise, perform binary search-like comparison within this category.
-        left, right = 0, len(same_cat_items) - 1
-        insertion_index = -1
-        while left <= right:
-            mid = (left + right) // 2
-            current_item = same_cat_items[mid]
-            print(f"(Calibration) Is the new item '{item_info['name']}' better or worse than '{current_item['item_name']}'?")
-            comparison_choice = input("Type 'better' or 'worse': ").strip().lower()
-            if comparison_choice == "better":
-                right = mid - 1
-                insertion_index = mid  # Insert before current
-            elif comparison_choice == "worse":
-                left = mid + 1
-                insertion_index = left  # Insert after current
-            else:
-                print("Invalid input. Please type 'better' or 'worse'.")
-        # Determine prev and next items from the filtered same_cat_items
-        # For "better" items: A is better than B means A.prev = B and B.next = A
-        if comparison_choice == "better":
-            if insertion_index >= len(same_cat_items):
-                # New item is better than all existing items in this category
-                prev_item_id = same_cat_items[-1]["item_id"] if same_cat_items else None
-                next_item_id = None
-            elif insertion_index <= 0:
-                # New item is better than the first item
-                prev_item_id = same_cat_items[0]["item_id"]
-                next_item_id = same_cat_items[0]["next_item"]
-            else:
-                # New item is better than item at insertion_index
-                prev_item_id = same_cat_items[insertion_index]["item_id"]
-                next_item_id = same_cat_items[insertion_index]["next_item"]
-        else:  # comparison_choice == "worse"
-            if insertion_index >= len(same_cat_items):
-                # New item is worse than the last compared item but better than nothing
-                prev_item_id = same_cat_items[insertion_index-1]["prev_item"]
-                next_item_id = same_cat_items[insertion_index-1]["item_id"]
-            elif insertion_index <= 0:
-                # New item is worse than everything
-                prev_item_id = None
-                next_item_id = same_cat_items[0]["item_id"]
-            else:
-                # New item is worse than current but better than previous
-                prev_item_id = same_cat_items[insertion_index-1]["item_id"]
-                next_item_id = same_cat_items[insertion_index]["item_id"]
-        
-        # Use the insert_in_calibration helper function to maintain linked list
-        insert_in_calibration(
-            user_id=user_id,
-            topic_id=topic_id,
-            new_item_id=item_info["id"],
-            prev_item_id=prev_item_id,
-            next_item_id=next_item_id
-        )
-        
-        # After insertion, apply normal distribution to all items
-        redistribute_scores_normal_curve(user_id, topic_id)
-        
-        # Fetch updated rankings to return
-        ranked_items = fetch_ranked_items(user_id, topic_id)
-        return {"message": "Item ranked successfully in calibration mode.", "ranking": ranked_items}
-
-    # ------------------- Elo Mode (>=10 items) ------------------- #
-    # In Elo mode, all comparisons and rerankings use the Elo system.
+        }
     else:
-        # Use the overall ranked_items list (in Elo mode, category comparisons are not enforced)
-        left, right = 0, len(ranked_items) - 1
-        insertion_index = -1
-        new_item_score = 5.5  # Default starting score for new items in Elo mode
-        # If the item doesn't already have a score, assign the default.
-        if item_info["score"] is None:
-            item_info["score"] = new_item_score
-            # Also update the Items table with this default score.
-            supabase.table("Items").update({"score": new_item_score}).eq("item_id", item_info["id"]).execute()
-        while left <= right:
-            mid = (left + right) // 2
-            current_item = ranked_items[mid]
-            print(f"(Elo Mode) Is the item '{item_info['name']}' better or worse than '{current_item['item_name']}'?")
-            comparison_choice = input("Type 'better' or 'worse': ").strip().lower()
-            # In Elo mode, update scores using our Elo function for each comparison.
-            # Fetch current scores from Items table for both items.
-            comp_item_data = supabase.table("Items").select("score").eq("item_id", current_item["item_id"]).execute().data
-            comp_score = comp_item_data[0]["score"] if comp_item_data else 5.5
-            new_item_data = supabase.table("Items").select("score").eq("item_id", item_info["id"]).execute().data
-            new_score = new_item_data[0]["score"] if new_item_data else new_item_score
-            item_a = {"score": new_score}
-            item_b = {"score": comp_score}
-            if comparison_choice == "better":
-                # Consider new item as winner ("A")
-                new_score, comp_new_score = update_elo_ratings(item_a, item_b, "A")
-                right = mid - 1
-                insertion_index = mid  # new item should come before current_item
-            elif comparison_choice == "worse":
-                new_score, comp_new_score = update_elo_ratings(item_a, item_b, "B")
-                left = mid + 1
-                insertion_index = left  # new item should come after current_item
-            else:
-                print("Invalid input. Please type 'better' or 'worse'.")
-                continue
-            # Update both items' scores in Items table.
-            supabase.table("Items").update({"score": new_score}).eq("item_id", item_info["id"]).execute()
-            supabase.table("Items").update({"score": comp_new_score}).eq("item_id", current_item["item_id"]).execute()
-            item_info["score"] = new_score
-        # Determine overall prev_item and next_item from the Elo-mode ranked_items.
-        prev_item_id = ranked_items[insertion_index - 1]["item_id"] if insertion_index > 0 else None
-        next_item_id = ranked_items[insertion_index]["item_id"] if insertion_index < len(ranked_items) else None
+        # First item, no comparisons needed
         new_ranking = {
             "user_id": user_id,
             "topic_id": topic_id,
             "item_id": item_info["id"],
-            "prev_item": prev_item_id,
-            "next_item": next_item_id,
-            "score": item_info["score"]
+            "prev_item": None,
+            "next_item": None,
+            "score": 5.5  # Default for first item
         }
         supabase.table("Rankings").insert(new_ranking).execute()
-        if prev_item_id:
-            supabase.table("Rankings").update({"next_item": item_info["id"]}).eq("item_id", prev_item_id).execute()
-        if next_item_id:
-            supabase.table("Rankings").update({"prev_item": item_info["id"]}).eq("item_id", next_item_id).execute()
-        updated_rankings = fetch_ranked_items(user_id, topic_id)
-        return {"message": "Item ranked successfully in Elo mode.", "ranking": updated_rankings}
+        return {
+            "status": "completed",
+            "message": "First item added successfully",
+            "ranking": [{"item_id": item_info["id"], "item_name": item_info["name"], "score": 5.5}]
+        }
 
-# ------------------- End /compare Endpoint ------------------- #
+# Add new endpoint for calibration category selection
+class CalibrationRequest(BaseModel):
+    user_id: int
+    item_id: int
+    topic_name: str
+    category: str  # "Loved", "Liked", or "Disliked"
+
+@app.post("/set_category")
+def set_category(request: CalibrationRequest):
+    """Set category for an item during calibration phase"""
+    user_id = request.user_id
+    item_id = request.item_id
+    topic_name = request.topic_name
+    category = request.category
+    
+    if category not in ["Loved", "Liked", "Disliked"]:
+        raise HTTPException(status_code=400, detail="Category must be Loved, Liked, or Disliked")
+    
+    # Get topic_id
+    topic = supabase.table("Topics").select("*").eq("topic_name", topic_name).execute().data
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    topic_id = topic[0]["topic_id"]
+    
+    # Update the item with the selected category
+    supabase.table("Items").update({"category": category}).eq("item_id", item_id).execute()
+    
+    # Get default score based on category
+    default_scores = {"Loved": 8.5, "Liked": 5.5, "Disliked": 2.0}
+    initial_score = default_scores[category]
+    
+    # Get existing rankings for this user & topic
+    ranked_items = fetch_ranked_items(user_id, topic_id)
+    same_cat_items = [it for it in ranked_items if it.get("category") == category]
+    
+    # If this is the first item in this category, add with default score
+    if not same_cat_items:
+        new_ranking = {
+            "user_id": user_id,
+            "topic_id": topic_id,
+            "item_id": item_id,
+            "prev_item": None,
+            "next_item": None,
+            "score": initial_score
+        }
+        supabase.table("Rankings").insert(new_ranking).execute()
+        updated_rankings = fetch_ranked_items(user_id, topic_id)
+        
+        return {
+            "status": "completed",
+            "message": f"First item in {category} category added successfully",
+            "ranking": updated_rankings
+        }
+    
+    # Otherwise, we need to do binary search comparisons
+    # Return the first comparison item
+    comparison_item = same_cat_items[len(same_cat_items) // 2]
+    return {
+        "status": "comparison_needed",
+        "message": f"Compare with existing {category} item",
+        "new_item": {
+            "id": item_id,
+            "name": supabase.table("Items").select("item_name").eq("item_id", item_id).execute().data[0]["item_name"]
+        },
+        "comparison_item": {
+            "id": comparison_item["item_id"],
+            "name": comparison_item["item_name"]
+        },
+        "category": category
+    }
+
+# Add endpoint for responding to comparison questions
+class ComparisonResponse(BaseModel):
+    user_id: int
+    new_item_id: int
+    comparison_item_id: int
+    topic_name: str
+    is_better: bool  # True if new item is better, False if worse
+    category: Optional[str] = None  # Only needed in calibration mode
+
+@app.post("/respond_comparison")
+def respond_comparison(request: ComparisonResponse):
+    """Process a comparison response from the user"""
+    user_id = request.user_id
+    new_item_id = request.new_item_id
+    comparison_item_id = request.comparison_item_id
+    topic_name = request.topic_name
+    is_better = request.is_better
+    category = request.category
+    
+    # Get topic_id
+    topic = supabase.table("Topics").select("*").eq("topic_name", topic_name).execute().data
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    topic_id = topic[0]["topic_id"]
+    
+    # Get item names for response
+    new_item_name = supabase.table("Items").select("item_name").eq("item_id", new_item_id).execute().data[0]["item_name"]
+    comparison_item_name = supabase.table("Items").select("item_name").eq("item_id", comparison_item_id).execute().data[0]["item_name"]
+    
+    # Get all ranked items
+    ranked_items = fetch_ranked_items(user_id, topic_id)
+    
+    # Check if item already exists in rankings
+    existing_ranking = supabase.table("Rankings").select("*").eq("user_id", user_id).eq("topic_id", topic_id).eq("item_id", new_item_id).execute().data
+    if existing_ranking:
+        # If this item is already ranked, we've finished the binary search
+        return {
+            "status": "completed",
+            "message": "Item has already been ranked",
+            "ranking": ranked_items
+        }
+    
+    total_items = len(ranked_items)
+    
+    # Handle comparison based on mode
+    if total_items < 10 and category:
+        # Calibration mode - category specific comparison
+        same_cat_items = [it for it in ranked_items if it.get("category") == category]
+        
+        # Locate the comparison item's position in the list
+        comparison_idx = next((i for i, item in enumerate(same_cat_items) if item["item_id"] == comparison_item_id), -1)
+        
+        if comparison_idx == -1:
+            raise HTTPException(status_code=404, detail="Comparison item not found in rankings")
+            
+        # Determine next comparison or insertion position based on response
+        insertion_index = -1
+        
+        if is_better:
+            # New item is better than comparison item
+            # Insert directly before this item since we're going through the sorted list
+            if comparison_idx > 0:
+                # Need to check against a better item
+                next_comparison_idx = max(0, comparison_idx - 1)
+                next_comparison_item = same_cat_items[next_comparison_idx]
+                
+                # Check if we've already compared to this item (would create a loop)
+                if next_comparison_item["item_id"] == comparison_item_id:
+                    # We've narrowed it down to final placement
+                    insertion_index = comparison_idx
+                else:
+                    return {
+                        "status": "comparison_needed",
+                        "message": f"Compare with another {category} item",
+                        "new_item": {
+                            "id": new_item_id,
+                            "name": new_item_name
+                        },
+                        "comparison_item": {
+                            "id": next_comparison_item["item_id"],
+                            "name": next_comparison_item["item_name"]
+                        },
+                        "category": category
+                    }
+            else:
+                # This is the best item in this category
+                insertion_index = 0
+        else:
+            # New item is worse than comparison item
+            # Insert directly after this item
+            if comparison_idx < len(same_cat_items) - 1:
+                # Need to check against a worse item
+                next_comparison_idx = min(len(same_cat_items) - 1, comparison_idx + 1)
+                next_comparison_item = same_cat_items[next_comparison_idx]
+                
+                # Check if we've already compared to this item (would create a loop)
+                if next_comparison_item["item_id"] == comparison_item_id:
+                    # We've narrowed it down to final placement
+                    insertion_index = comparison_idx + 1
+                else:
+                    return {
+                        "status": "comparison_needed",
+                        "message": f"Compare with another {category} item",
+                        "new_item": {
+                            "id": new_item_id,
+                            "name": new_item_name
+                        },
+                        "comparison_item": {
+                            "id": next_comparison_item["item_id"],
+                            "name": next_comparison_item["item_name"]
+                        },
+                        "category": category
+                    }
+            else:
+                # This is the worst item in this category
+                insertion_index = len(same_cat_items)
+            
+        # If we reached here, we're ready to insert at insertion_index
+        # Calculate prev and next items
+        if insertion_index == 0:
+            # Item goes at the front of the list (best in category)
+            prev_item_id = None
+            next_item_id = same_cat_items[0]["item_id"] if same_cat_items else None
+        elif insertion_index >= len(same_cat_items):
+            # Item goes at the end of the list (worst in category)
+            prev_item_id = same_cat_items[-1]["item_id"] if same_cat_items else None
+            next_item_id = None
+        else:
+            # Item goes in the middle
+            prev_item_id = same_cat_items[insertion_index - 1]["item_id"]
+            next_item_id = same_cat_items[insertion_index]["item_id"]
+        
+        # Insert the item with the linked list structure
+        insert_in_calibration(
+            user_id=user_id,
+            topic_id=topic_id,
+            new_item_id=new_item_id,
+            prev_item_id=prev_item_id,
+            next_item_id=next_item_id
+        )
+        
+        # Redistribute scores
+        redistribute_scores_normal_curve(user_id, topic_id)
+        
+        # Get updated rankings
+        updated_rankings = fetch_ranked_items(user_id, topic_id)
+        
+        return {
+            "status": "completed",
+            "message": f"Item added to {category} category successfully",
+            "ranking": updated_rankings
+        }
+    else:
+        # Elo mode - overall comparison
+        # Check if the new item already exists in rankings (prevents loops)
+        existing_ranking = supabase.table("Rankings").select("*").eq("user_id", user_id).eq("topic_id", topic_id).eq("item_id", new_item_id).execute().data
+        if existing_ranking:
+            # The item is already ranked, we're done
+            return {
+                "status": "completed",
+                "message": "Item rank has been finalized",
+                "ranking": ranked_items
+            }
+            
+        # Find comparison item in ranked items
+        comparison_idx = next((i for i, item in enumerate(ranked_items) if item["item_id"] == comparison_item_id), -1)
+        if comparison_idx == -1:
+            raise HTTPException(status_code=404, detail="Comparison item not found in rankings")
+        
+        # Get scores
+        new_item_data = supabase.table("Items").select("score").eq("item_id", new_item_id).execute().data
+        new_score = new_item_data[0]["score"] if new_item_data and new_item_data[0].get("score") is not None else 5.5
+        
+        comp_score = ranked_items[comparison_idx].get("score", 5.5)
+        
+        # Update scores using Elo
+        if is_better:
+            new_score, comp_new_score = update_elo_ratings({"score": new_score}, {"score": comp_score}, "A")
+        else:
+            new_score, comp_new_score = update_elo_ratings({"score": new_score}, {"score": comp_score}, "B")
+        
+        # Update the comparison item's score in Rankings table
+        supabase.table("Rankings").update({"score": comp_new_score}).eq("item_id", comparison_item_id).eq("user_id", user_id).eq("topic_id", topic_id).execute()
+            
+        # Decide if we need another comparison or we can insert
+        insertion_index = -1
+        
+        if is_better:
+            # New item is better than comparison item
+            if comparison_idx > 0:
+                # Need to check against a better item
+                next_comparison_idx = max(0, comparison_idx - 1)
+                next_comparison_item = ranked_items[next_comparison_idx]
+                
+                # Check if we've already compared to this item (would create a loop)
+                if next_comparison_item["item_id"] == comparison_item_id:
+                    # We've narrowed it down to final placement
+                    insertion_index = comparison_idx
+                else:
+                    return {
+                        "status": "comparison_needed",
+                        "message": "Compare with another item",
+                        "new_item": {
+                            "id": new_item_id,
+                            "name": new_item_name
+                        },
+                        "comparison_item": {
+                            "id": next_comparison_item["item_id"],
+                            "name": next_comparison_item["item_name"]
+                        }
+                    }
+            else:
+                # This is the best item overall
+                insertion_index = 0
+        else:
+            # New item is worse than comparison item
+            if comparison_idx < len(ranked_items) - 1:
+                # Need to check against a worse item
+                next_comparison_idx = min(len(ranked_items) - 1, comparison_idx + 1)
+                next_comparison_item = ranked_items[next_comparison_idx]
+                
+                # Check if we've already compared to this item (would create a loop)
+                if next_comparison_item["item_id"] == comparison_item_id:
+                    # We've narrowed it down to final placement
+                    insertion_index = comparison_idx + 1
+                else:
+                    return {
+                        "status": "comparison_needed",
+                        "message": "Compare with another item",
+                        "new_item": {
+                            "id": new_item_id,
+                            "name": new_item_name
+                        },
+                        "comparison_item": {
+                            "id": next_comparison_item["item_id"],
+                            "name": next_comparison_item["item_name"]
+                        }
+                    }
+            else:
+                # This is the worst item overall
+                insertion_index = len(ranked_items)
+                
+        # If we reached here, we're ready to insert
+        # Calculate prev and next items
+        if insertion_index == 0:
+            # Item goes at the front of the list (best overall)
+            prev_item_id = None
+            next_item_id = ranked_items[0]["item_id"] if ranked_items else None
+        elif insertion_index >= len(ranked_items):
+            # Item goes at the end of the list (worst overall)
+            prev_item_id = ranked_items[-1]["item_id"] if ranked_items else None
+            next_item_id = None
+        else:
+            # Item goes in the middle
+            prev_item_id = ranked_items[insertion_index - 1]["item_id"]
+            next_item_id = ranked_items[insertion_index]["item_id"]
+            
+        # Insert the new ranking
+        new_ranking = {
+            "user_id": user_id,
+            "topic_id": topic_id,
+            "item_id": new_item_id,
+            "prev_item": prev_item_id,
+            "next_item": next_item_id,
+            "score": new_score
+        }
+        supabase.table("Rankings").insert(new_ranking).execute()
+        
+        # Update neighboring items
+        if prev_item_id:
+            supabase.table("Rankings").update({"next_item": new_item_id}).eq("user_id", user_id).eq("topic_id", topic_id).eq("item_id", prev_item_id).execute()
+        if next_item_id:
+            supabase.table("Rankings").update({"prev_item": new_item_id}).eq("user_id", user_id).eq("topic_id", topic_id).eq("item_id", next_item_id).execute()
+            
+        # Get updated rankings
+        updated_rankings = fetch_ranked_items(user_id, topic_id)
+        
+        return {
+            "status": "completed",
+            "message": "Item ranked successfully",
+            "ranking": updated_rankings
+        }
+
+# Add endpoint to check if user is in calibration mode
+@app.get("/check_calibration")
+def check_calibration(user_id: int, topic_name: str):
+    """Check if user has fewer than 10 items (in calibration mode)"""
+    # Get topic_id
+    topic = supabase.table("Topics").select("*").eq("topic_name", topic_name).execute().data
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    topic_id = topic[0]["topic_id"]
+    
+    # Count user's items for this topic
+    ranked_items = fetch_ranked_items(user_id, topic_id)
+    count = len(ranked_items)
+    
+    return {
+        "is_calibration": count < 10,
+        "item_count": count,
+        "items_needed": 10 - count if count < 10 else 0
+    }
 
 @app.post("/rerank")
 def rerank_item(request: ItemRerankRequest):
@@ -960,3 +1300,20 @@ def remove_item(request: RemoveItemRequest):
     supabase.table("Rankings").delete().eq("item_id", item_id).execute()
 
     return {"message": "Item removed successfully."}
+
+@app.get("/topics")
+def get_topics():
+    """
+    Get all available topics.
+    
+    Returns:
+    - Dict containing array of topic names
+    """
+    topics = supabase.table("Topics").select("topic_name").execute().data
+    topic_names = [topic["topic_name"] for topic in topics]
+    
+    # If no topics exist yet, return default topics
+    if not topic_names:
+        topic_names = ["Movies", "TV Shows", "Albums", "Books", "Video Games", "Restaurants"]
+        
+    return {"topics": topic_names}

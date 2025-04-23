@@ -5,7 +5,7 @@ import { StyleSheet, View, Text, Image, TouchableOpacity } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useColorScheme } from 'react-native';
 
-type ContentType = "Movies" | "Albums";
+type ContentType = "Movies" | "Albums" | "TV Shows";
 
 type MovieItem = {
   id: string;
@@ -20,12 +20,19 @@ type AlbumItem = {
   image: any;
 };
 
-type ContentItem = MovieItem | AlbumItem;
+type TVShowItem = {
+  id: string;
+  title: string;
+  image: any;
+};
+
+type ContentItem = MovieItem | AlbumItem | TVShowItem;
 
 // Define placeholder images
 const PLACEHOLDER_IMAGES = {
   movie: require('../../assets/images/icon.png'),
   album: require('../../assets/images/icon.png'),
+  tv: require('../../assets/images/icon.png'),
 } as const;
 
 // Sample content data
@@ -37,6 +44,10 @@ const CONTENT: Record<ContentType, ContentItem[]> = {
   Albums: [
     { id: '1', title: 'Thriller', artist: 'Michael Jackson', image: PLACEHOLDER_IMAGES.album },
     { id: '2', title: 'Abbey Road', artist: 'The Beatles', image: PLACEHOLDER_IMAGES.album },
+  ],
+  "TV Shows": [
+    { id: '1', title: 'Breaking Bad', image: PLACEHOLDER_IMAGES.tv },
+    { id: '2', title: 'The Wire', image: PLACEHOLDER_IMAGES.tv },
   ],
 } as const;
 
@@ -52,37 +63,51 @@ export default function HomePage() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]} edges={["bottom"]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#1C1C1E' }]} edges={["bottom"]}>
       <View style={styles.content}>
         {/* Tab Buttons */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
             style={[
               styles.tabButton,
-              { backgroundColor: isDark ? '#1C1C1E' : '#f6f6f6' },
+              { backgroundColor: '#2C2C2E' },
               contentType === "Movies" && styles.activeTabButton
             ]}
             onPress={() => setContentType("Movies")}
           >
             <Text style={[
               styles.tabText,
-              { color: isDark ? '#FFFFFF' : '#000000' },
+              { color: '#FFFFFF' },
               contentType === "Movies" && styles.activeTabText
             ]}>Movies</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
               styles.tabButton,
-              { backgroundColor: isDark ? '#1C1C1E' : '#f6f6f6' },
+              { backgroundColor: '#2C2C2E' },
               contentType === "Albums" && styles.activeTabButton
             ]}
             onPress={() => setContentType("Albums")}
           >
             <Text style={[
               styles.tabText,
-              { color: isDark ? '#FFFFFF' : '#000000' },
+              { color: '#FFFFFF' },
               contentType === "Albums" && styles.activeTabText
             ]}>Albums</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              { backgroundColor: '#2C2C2E' },
+              contentType === "TV Shows" && styles.activeTabButton
+            ]}
+            onPress={() => setContentType("TV Shows")}
+          >
+            <Text style={[
+              styles.tabText,
+              { color: '#FFFFFF' },
+              contentType === "TV Shows" && styles.activeTabText
+            ]}>TV Shows</Text>
           </TouchableOpacity>
         </View>
 
@@ -90,31 +115,31 @@ export default function HomePage() {
         <View style={styles.itemsContainer}>
           {/* First Item */}
           <View style={styles.itemContainer}>
-            <View style={[styles.imageContainer, { backgroundColor: isDark ? '#1C1C1E' : '#f6f6f6' }]}>
+            <View style={[styles.imageContainer, { backgroundColor: '#2C2C2E' }]}>
               <Image
                 source={currentContent[0].image}
                 style={styles.image}
                 resizeMode="cover"
               />
             </View>
-            <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>{currentContent[0].title}</Text>
+            <Text style={[styles.title, { color: '#FFFFFF' }]}>{currentContent[0].title}</Text>
             {isAlbum(currentContent[0]) && (
-              <Text style={[styles.artist, { color: isDark ? '#8E8E93' : '#666' }]}>{currentContent[0].artist}</Text>
+              <Text style={[styles.artist, { color: '#8E8E93' }]}>{currentContent[0].artist}</Text>
             )}
           </View>
 
           {/* Second Item */}
           <View style={styles.itemContainer}>
-            <View style={[styles.imageContainer, { backgroundColor: isDark ? '#1C1C1E' : '#f6f6f6' }]}>
+            <View style={[styles.imageContainer, { backgroundColor: '#2C2C2E' }]}>
               <Image
                 source={currentContent[1].image}
                 style={styles.image}
                 resizeMode="cover"
               />
             </View>
-            <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>{currentContent[1].title}</Text>
+            <Text style={[styles.title, { color: '#FFFFFF' }]}>{currentContent[1].title}</Text>
             {isAlbum(currentContent[1]) && (
-              <Text style={[styles.artist, { color: isDark ? '#8E8E93' : '#666' }]}>{currentContent[1].artist}</Text>
+              <Text style={[styles.artist, { color: '#8E8E93' }]}>{currentContent[1].artist}</Text>
             )}
           </View>
         </View>
@@ -144,14 +169,14 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   activeTabButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#FFD700',
   },
   tabText: {
     fontSize: 16,
     fontWeight: '500',
   },
   activeTabText: {
-    color: 'white',
+    color: '#1C1C1E',
   },
   itemsContainer: {
     flex: 1,

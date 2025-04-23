@@ -52,18 +52,19 @@ export default function PeopleScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#1C1C1E' }]}>
       <View style={styles.searchContainer}>
         <TextInput
           style={[
             styles.searchInput,
             { 
-              backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7',
-              color: isDark ? '#FFFFFF' : '#000000'
+              backgroundColor: '#2C2C2E',
+              color: '#FFFFFF',
+              borderColor: '#FFD700'
             }
           ]}
           placeholder="Search friends..."
-          placeholderTextColor={isDark ? '#8E8E93' : '#8E8E93'}
+          placeholderTextColor="#8E8E93"
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -90,6 +91,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 16,
     fontSize: 16,
+    borderWidth: 2,
   },
   friendsList: {
     padding: 16,
@@ -100,6 +102,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 10,
     marginBottom: 8,
+    backgroundColor: '#2C2C2E',
   },
   friendInfo: {
     flex: 1,
@@ -108,6 +111,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
+    color: '#FFFFFF',
   },
   friendStatus: {
     fontSize: 14,

@@ -20,6 +20,67 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# API keys
+TMDB_API_KEY = "213e8f28caae25b3b4cc495a11db1272"
+sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
+    client_id="30b50adac3584635a327735395823eb7",
+    client_secret="7471275b93e44c929743e06936760cc5"
+))
+GOOGLE_API_KEY = "AIzaSyCiBmNOrvLUCDq-7h_7Wn1td4OKeQGntbs"
+GOOGLE_API_LINK = "https://www.googleapis.com/books/v1"
+YELP_API_KEY = "ucZ-Ad_-RlW5rWrFLkUEo26NwPXJer4-8x5D-kwrJXYk8IOWseuNMiofbR0_YgpPBhzcDTa4GR4a6B9-xUyKPkmAsr6-xQALz73qxmeNSTIgVd0V2W1KZ7y760t7Z3Yx"
+
+# Initialize Supabase
+url = "https://gkvqpvkyncgblfbfmsoz.supabase.co"
+key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrdnFwdmt5bmNnYmxmYmZtc296Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNDk5MTI5NSwiZXhwIjoyMDUwNTY3Mjk1fQ.KPPQgtkdf6tycv7CKe7hYhbKc0wx48mbeIXWAWU3OOs"
+supabase: Client = create_client(url, key)
+
+def initialize_test_data():
+    # Create Movies topic if it doesn't exist
+    topic = supabase.table("Topics").select("*").eq("topic_name", "Movies").execute().data
+    if not topic:
+        topic = supabase.table("Topics").insert({"topic_name": "Movies"}).execute().data
+        topic_id = topic[0]["topic_id"]
+    else:
+        topic_id = topic[0]["topic_id"]
+
+    # Create 10 test items
+    test_items = [
+        {"item_name": "The Godfather", "topic_id": topic_id, "created_by": 1, "category": "Loved"},
+        {"item_name": "Inception", "topic_id": topic_id, "created_by": 1, "category": "Liked"},
+        {"item_name": "The Matrix", "topic_id": topic_id, "created_by": 1, "category": "Liked"},
+        {"item_name": "Pulp Fiction", "topic_id": topic_id, "created_by": 1, "category": "Loved"},
+        {"item_name": "The Dark Knight", "topic_id": topic_id, "created_by": 1, "category": "Loved"},
+        {"item_name": "Fight Club", "topic_id": topic_id, "created_by": 1, "category": "Liked"},
+        {"item_name": "Interstellar", "topic_id": topic_id, "created_by": 1, "category": "Liked"},
+        {"item_name": "The Shawshank Redemption", "topic_id": topic_id, "created_by": 1, "category": "Loved"},
+        {"item_name": "Goodfellas", "topic_id": topic_id, "created_by": 1, "category": "Liked"},
+        {"item_name": "The Silence of the Lambs", "topic_id": topic_id, "created_by": 1, "category": "Liked"},
+    ]
+
+    for item in test_items:
+        existing_item = supabase.table("Items").select("*").eq("item_name", item["item_name"]).execute().data
+        if not existing_item:
+            supabase.table("Items").insert(item).execute()
+
+    # Create rankings for user 1
+    rankings = supabase.table("Rankings").select("*").eq("user_id", 1).eq("topic_id", topic_id).execute().data
+    if not rankings:
+        items = supabase.table("Items").select("*").eq("topic_id", topic_id).execute().data
+        for i, item in enumerate(items):
+            score = 8.5 if item["category"] == "Loved" else 5.5
+            supabase.table("Rankings").insert({
+                "user_id": 1,
+                "topic_id": topic_id,
+                "item_id": item["item_id"],
+                "score": score,
+                "prev_item": items[i-1]["item_id"] if i > 0 else None,
+                "next_item": items[i+1]["item_id"] if i < len(items) - 1 else None
+            }).execute()
+
+# Call this function when the app starts
+initialize_test_data()
+
 """
 How to run:
 1. Install all libraries and uvicorn
@@ -138,24 +199,6 @@ Restaurants:
 
 10. Once finished, you should see the rankings outputted in Postman
 """
-
-# API keys
-TMDB_API_KEY = "213e8f28caae25b3b4cc495a11db1272"
-sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
-    client_id="30b50adac3584635a327735395823eb7",
-    client_secret="7471275b93e44c929743e06936760cc5"
-))
-GOOGLE_API_KEY = "AIzaSyCiBmNOrvLUCDq-7h_7Wn1td4OKeQGntbs"
-GOOGLE_API_LINK = "https://www.googleapis.com/books/v1"
-YELP_API_KEY = "ucZ-Ad_-RlW5rWrFLkUEo26NwPXJer4-8x5D-kwrJXYk8IOWseuNMiofbR0_YgpPBhzcDTa4GR4a6B9-xUyKPkmAsr6-xQALz73qxmeNSTIgVd0V2W1KZ7y760t7Z3Yx"
-# BALL_API_KEY = "81e81bb2-d3d1-48c0-8d02-3eda37cadf39"
-# api = BalldontlieAPI(api_key=BALL_API_KEY)
-
-
-# Initialize Supabase
-url = "https://gkvqpvkyncgblfbfmsoz.supabase.co"
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrdnFwdmt5bmNnYmxmYmZtc296Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNDk5MTI5NSwiZXhwIjoyMDUwNTY3Mjk1fQ.KPPQgtkdf6tycv7CKe7hYhbKc0wx48mbeIXWAWU3OOs"
-supabase: Client = create_client(url, key)
 
 # Generalized request model (unchanged)
 class ItemComparisonRequest(BaseModel):
@@ -459,6 +502,18 @@ def get_access_token():
         return response.json().get("access_token")
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=400, detail=f"Error fetching access token: {str(e)}")
+    
+@app.get("/rankings")
+def get_rankings(topic: str):
+    # First get the topic_id from the topic_name
+    topic_data = supabase.table("Topics").select("topic_id").eq("topic_name", topic).execute().data
+    if not topic_data:
+        raise HTTPException(status_code=404, detail=f"Topic '{topic}' not found")
+    topic_id = topic_data[0]["topic_id"]
+    
+    # Fetch rankings for the specified topic
+    rankings = fetch_ranked_items(1, topic_id)  # Replace 1 with actual user_id
+    return {"ranking": rankings}
 
 def fetch_game_data(game_id: str):
     """

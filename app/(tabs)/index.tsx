@@ -1,188 +1,229 @@
 "use client"
 
-import { useState } from "react"
-import { StyleSheet, View, Text, Image, TouchableOpacity } from "react-native"
-import { SafeAreaView } from "react-native-safe-area-context"
-import { useColorScheme } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Image, ActivityIndicator, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
+import { rankingService } from '../services/api';
+import { Picker } from '@react-native-picker/picker';
+import { AntDesign } from '@expo/vector-icons';
 
-type ContentType = "Movies" | "Albums";
+export default function HomeScreen() {
+  const [topics, setTopics] = useState<string[]>([]);
+  const [selectedTopic, setSelectedTopic] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
-type MovieItem = {
-  id: string;
-  title: string;
-  image: any;
-};
+  useEffect(() => {
+    async function loadTopics() {
+      try {
+        setLoading(true);
+        const fetchedTopics = await rankingService.getTopics();
+        setTopics(fetchedTopics || []);
+        if (fetchedTopics && fetchedTopics.length > 0) {
+          setSelectedTopic(fetchedTopics[0]);
+        }
+      } catch (error) {
+        console.error('Failed to load topics:', error);
+        // Use default topics as fallback
+        const defaultTopics = ["Movies", "TV Shows", "Albums", "Books", "Video Games", "Restaurants"];
+        setTopics(defaultTopics);
+        setSelectedTopic(defaultTopics[0]);
+      } finally {
+        setLoading(false);
+      }
+    }
 
-type AlbumItem = {
-  id: string;
-  title: string;
-  artist: string;
-  image: any;
-};
+    loadTopics();
+  }, []);
 
-type ContentItem = MovieItem | AlbumItem;
-
-// Define placeholder images
-const PLACEHOLDER_IMAGES = {
-  movie: require('../../assets/images/icon.png'),
-  album: require('../../assets/images/icon.png'),
-} as const;
-
-// Sample content data
-const CONTENT: Record<ContentType, ContentItem[]> = {
-  Movies: [
-    { id: '1', title: 'Akira', image: PLACEHOLDER_IMAGES.movie },
-    { id: '2', title: 'Everything Everywhere All at Once', image: PLACEHOLDER_IMAGES.movie },
-  ],
-  Albums: [
-    { id: '1', title: 'Thriller', artist: 'Michael Jackson', image: PLACEHOLDER_IMAGES.album },
-    { id: '2', title: 'Abbey Road', artist: 'The Beatles', image: PLACEHOLDER_IMAGES.album },
-  ],
-} as const;
-
-export default function HomePage() {
-  const [contentType, setContentType] = useState<ContentType>("Movies");
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
-  const currentContent = CONTENT[contentType];
-
-  const isAlbum = (item: ContentItem): item is AlbumItem => {
-    return 'artist' in item;
+  const handleTopicSelect = () => {
+    if (!selectedTopic) return;
+    
+    // Navigate to search screen with the selected topic
+    router.push({
+      pathname: '/search',
+      params: { topic: selectedTopic }
+    });
   };
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]} edges={["bottom"]}>
-      <View style={styles.content}>
-        {/* Tab Buttons */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[
-              styles.tabButton,
-              { backgroundColor: isDark ? '#1C1C1E' : '#f6f6f6' },
-              contentType === "Movies" && styles.activeTabButton
-            ]}
-            onPress={() => setContentType("Movies")}
-          >
-            <Text style={[
-              styles.tabText,
-              { color: isDark ? '#FFFFFF' : '#000000' },
-              contentType === "Movies" && styles.activeTabText
-            ]}>Movies</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.tabButton,
-              { backgroundColor: isDark ? '#1C1C1E' : '#f6f6f6' },
-              contentType === "Albums" && styles.activeTabButton
-            ]}
-            onPress={() => setContentType("Albums")}
-          >
-            <Text style={[
-              styles.tabText,
-              { color: isDark ? '#FFFFFF' : '#000000' },
-              contentType === "Albums" && styles.activeTabText
-            ]}>Albums</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Content Container */}
-        <View style={styles.itemsContainer}>
-          {/* First Item */}
-          <View style={styles.itemContainer}>
-            <View style={[styles.imageContainer, { backgroundColor: isDark ? '#1C1C1E' : '#f6f6f6' }]}>
-              <Image
-                source={currentContent[0].image}
-                style={styles.image}
-                resizeMode="cover"
-              />
-            </View>
-            <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>{currentContent[0].title}</Text>
-            {isAlbum(currentContent[0]) && (
-              <Text style={[styles.artist, { color: isDark ? '#8E8E93' : '#666' }]}>{currentContent[0].artist}</Text>
-            )}
-          </View>
-
-          {/* Second Item */}
-          <View style={styles.itemContainer}>
-            <View style={[styles.imageContainer, { backgroundColor: isDark ? '#1C1C1E' : '#f6f6f6' }]}>
-              <Image
-                source={currentContent[1].image}
-                style={styles.image}
-                resizeMode="cover"
-              />
-            </View>
-            <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>{currentContent[1].title}</Text>
-            {isAlbum(currentContent[1]) && (
-              <Text style={[styles.artist, { color: isDark ? '#8E8E93' : '#666' }]}>{currentContent[1].artist}</Text>
-            )}
-          </View>
-        </View>
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FFD700" />
       </View>
-    </SafeAreaView>
-  )
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.logoContainer}>
+          <Image 
+            source={require('../../assets/images/logo.png')} 
+            style={styles.logo} 
+            resizeMode="contain"
+          />
+        </View>
+        <Text style={styles.title}>Rankd</Text>
+        <Text style={styles.subtitle}>What would you like to rank today?</Text>
+      </View>
+
+      <View style={styles.selectionContainer}>
+        <Text style={styles.dropdownLabel}>Category:</Text>
+        
+        <View style={styles.pickerContainer}>
+          {Platform.OS === 'ios' ? (
+            <Picker
+              selectedValue={selectedTopic}
+              onValueChange={(itemValue: string) => setSelectedTopic(itemValue)}
+              style={styles.picker}
+              itemStyle={styles.pickerItem}
+            >
+              {topics.map((topic) => (
+                <Picker.Item key={topic} label={topic} value={topic} />
+              ))}
+            </Picker>
+          ) : (
+            <View style={styles.androidPickerWrapper}>
+              <Picker
+                selectedValue={selectedTopic}
+                onValueChange={(itemValue: string) => setSelectedTopic(itemValue)}
+                style={styles.picker}
+                dropdownIconColor="#FFD700"
+                mode="dropdown"
+              >
+                {topics.map((topic) => (
+                  <Picker.Item 
+                    key={topic} 
+                    label={topic} 
+                    value={topic} 
+                    style={styles.androidPickerItem}
+                  />
+                ))}
+              </Picker>
+              <AntDesign name="caretdown" size={16} color="#FFD700" style={styles.dropdownIcon} />
+            </View>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={styles.continueButton}
+          onPress={handleTopicSelect}
+        >
+          <Text style={styles.continueButtonText}>Continue</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#1C1C1E',
   },
-  content: {
+  loadingContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1C1C1E',
+  },
+  header: {
+    paddingTop: 60,
+    paddingBottom: 20,
+    alignItems: 'center',
     paddingHorizontal: 16,
   },
-  tabContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 8,
-    marginTop: 40,
-  },
-  tabButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  activeTabButton: {
-    backgroundColor: '#007AFF',
-  },
-  tabText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  activeTabText: {
-    color: 'white',
-  },
-  itemsContainer: {
-    flex: 1,
+  logoContainer: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: '#2C2C2E',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 32,
-  },
-  itemContainer: {
-    width: '100%',
-    maxWidth: 280,
-    alignItems: 'center',
-  },
-  imageContainer: {
-    width: 224,
-    height: 224,
-    borderRadius: 13,
     overflow: 'hidden',
+    marginBottom: 16,
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5
   },
-  image: {
-    width: '100%',
-    height: '100%',
+  logo: {
+    width: 120,
+    height: 120,
+    borderRadius: 60
   },
   title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFD700',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  selectionContainer: {
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  dropdownLabel: {
     fontSize: 18,
     fontWeight: '600',
-    marginTop: 10,
-    textAlign: 'center',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    alignSelf: 'flex-start',
   },
-  artist: {
-    fontSize: 14,
-    marginTop: 5,
-    textAlign: 'center',
+  pickerContainer: {
+    width: '100%',
+    backgroundColor: '#2C2C2E',
+    borderRadius: 12,
+    marginBottom: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#3C3C3E',
+  },
+  androidPickerWrapper: {
+    width: '100%',
+    height: 50,
+    justifyContent: 'center',
+    position: 'relative'
+  },
+  picker: {
+    width: '100%',
+    color: '#FFFFFF',
+    backgroundColor: 'transparent',
+    height: Platform.OS === 'ios' ? 150 : 50
+  },
+  pickerItem: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600'
+  },
+  androidPickerItem: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  dropdownIcon: {
+    position: 'absolute',
+    right: 12,
+    top: 17,
+    zIndex: 10
+  },
+  continueButton: {
+    backgroundColor: '#FFD700',
+    paddingVertical: 16,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+  },
+  continueButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1C1C1E',
   },
 });

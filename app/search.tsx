@@ -2,18 +2,15 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
-import { searchService, SearchResult } from '../services/search';
+import { searchService, SearchResult } from './services/search';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { rankingService } from '../services/api';
-import { AntDesign } from '@expo/vector-icons';
+import { rankingService } from './services/api';
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const router = useRouter();
   
   // Get the topic from route params
@@ -47,14 +44,14 @@ export default function SearchScreen() {
             searchResults = await searchService.searchRestaurants(searchQuery);
             break;
           case 'Books':
-            // If you have a books search function
+            // For books search
             searchResults = await searchService.searchAll(searchQuery);
-            searchResults = searchResults.filter(item => item.type === 'book');
+            searchResults = searchResults.filter(item => item.type === 'book' || item.type === 'movie');
             break;
           case 'Video Games':
-            // If you have a games search function
+            // For games search
             searchResults = await searchService.searchAll(searchQuery);
-            searchResults = searchResults.filter(item => item.type === 'game');
+            searchResults = searchResults.filter(item => item.type === 'game' || item.type === 'movie');
             break;
           default:
             searchResults = await searchService.searchAll(searchQuery);
@@ -81,42 +78,74 @@ export default function SearchScreen() {
       // Extract the real item ID (remove any type prefixes like "movie-", "album-", etc.)
       const itemId = item.id.includes('-') ? item.id.split('-')[1] : item.id;
       
-      // Call the backend to compare the item
-      const response = await rankingService.compareItems({
-        user_id: 1, // Default user ID
-        item_id: itemId,
-        topic_name: topic as string
-      });
+      // First check if user is in calibration mode
+      const calibrationCheck = await rankingService.checkCalibration(topic as string);
       
-      if (response.status === 'calibration_needed') {
-        // Navigate to calibration screen
-        router.push({
-          pathname: '/calibration',
-          params: { 
-            itemId: response.item_id.toString(),
-            itemName: response.item_name,
-            topic: topic as string
-          }
+      if (calibrationCheck.is_calibration) {
+        // Call the backend to compare the item
+        const response = await rankingService.compareItems({
+          user_id: 1, // Default user ID
+          item_id: itemId,
+          topic_name: topic as string
         });
-      } else if (response.status === 'comparison_needed') {
+        
+        if (response.status === 'calibration_needed') {
+          // Navigate to calibration screen
+          router.push({
+            pathname: '/calibration',
+            params: { 
+              itemId: response.item_id?.toString() || '',
+              itemName: response.item_name || item.title,
+              topic: topic as string
+            }
+          });
+        } else if (response.status === 'comparison_needed') {
+          // Navigate to comparison screen
+          router.push({
+            pathname: '/comparison',
+            params: {
+              newItemId: response.new_item?.id.toString() || '',
+              newItemName: response.new_item?.name || item.title,
+              comparisonItemId: response.comparison_item?.id.toString() || '',
+              comparisonItemName: response.comparison_item?.name || '',
+              topic: topic as string,
+              category: response.category || ''
+            }
+          });
+        } else {
+          // Navigate to rankings
+          router.push({
+            pathname: '/(tabs)/rankings',
+            params: { topic: topic as string }
+          });
+        }
+      } else {
+        // Directly compare in Elo mode (>10 items)
+        const response = await rankingService.compareItems({
+          user_id: 1,
+          item_id: itemId,
+          topic_name: topic as string
+        });
+        
         // Navigate to comparison screen
-        router.push({
-          pathname: '/comparison',
-          params: {
-            newItemId: response.new_item.id.toString(),
-            newItemName: response.new_item.name,
-            comparisonItemId: response.comparison_item.id.toString(),
-            comparisonItemName: response.comparison_item.name,
-            topic: topic as string,
-            category: response.category || ''
-          }
-        });
-      } else if (response.status === 'completed') {
-        // Navigate to rankings
-        router.push({
-          pathname: '/(tabs)/rankings',
-          params: { topic: topic as string }
-        });
+        if (response.status === 'comparison_needed') {
+          router.push({
+            pathname: '/comparison',
+            params: {
+              newItemId: response.new_item?.id.toString() || '',
+              newItemName: response.new_item?.name || item.title,
+              comparisonItemId: response.comparison_item?.id.toString() || '',
+              comparisonItemName: response.comparison_item?.name || '',
+              topic: topic as string
+            }
+          });
+        } else {
+          // No comparison needed (first item or complete)
+          router.push({
+            pathname: '/(tabs)/rankings',
+            params: { topic: topic as string }
+          });
+        }
       }
     } catch (error) {
       console.error('Error adding item:', error);
@@ -128,91 +157,69 @@ export default function SearchScreen() {
 
   const renderItem = ({ item }: { item: SearchResult }) => (
     <TouchableOpacity 
-      style={[
-        styles.resultItem,
-        { backgroundColor: '#1C1C1E' }
-      ]}
+      style={styles.resultItem}
       onPress={() => handleSelectItem(item)}
     >
       {item.image ? (
         <Image 
           source={{ uri: item.image }} 
           style={styles.resultImage} 
-          defaultSource={require('../../assets/images/icon.png')}
+          defaultSource={require('../assets/images/icon.png')}
         />
       ) : (
         <Image 
-          source={require('../../assets/images/icon.png')} 
+          source={require('../assets/images/icon.png')} 
           style={styles.resultImage} 
         />
       )}
       <View style={styles.resultTextContainer}>
-        <View style={styles.titleContainer}>
-          <Text style={[styles.resultTitle, { color: '#FFFFFF' }]}>
-            {item.title}
-          </Text>
-          <View style={styles.typeBadge}>
-            <Text style={styles.typeText}>{item.type}</Text>
-          </View>
-        </View>
+        <Text style={styles.resultTitle}>{item.title}</Text>
+        
         {item.artist && (
-          <Text style={[styles.resultArtist, { color: '#8E8E93' }]}>
-            {item.artist}
-          </Text>
+          <Text style={styles.resultArtist}>{item.artist}</Text>
         )}
+        
         {item.rating && (
-          <Text style={[styles.resultRating, { color: '#FFD700' }]}>
-            {item.rating.toFixed(1)} ★
-          </Text>
+          <Text style={styles.resultRating}>{item.rating.toFixed(1)} ★</Text>
         )}
+        
         {item.year && (
-          <Text style={[styles.resultYear, { color: '#8E8E93' }]}>
-            {item.year}
-          </Text>
+          <Text style={styles.resultYear}>{item.year}</Text>
         )}
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: '#000000' }]}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <AntDesign name="arrowleft" size={24} color="#FFD700" />
+          <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Search {topic || 'Items'}</Text>
       </View>
+      
       <View style={styles.searchContainer}>
-        <View style={styles.searchInputWrapper}>
-          <AntDesign name="search1" size={20} color="#8E8E93" style={styles.searchIcon} />
-          <TextInput
-            style={[
-              styles.searchInput,
-              { 
-                backgroundColor: '#1C1C1E',
-                color: '#FFFFFF',
-              }
-            ]}
-            placeholder={`Search ${topic || 'items'}...`}
-            placeholderTextColor="#8E8E93"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoFocus
-          />
-        </View>
+        <TextInput
+          style={styles.searchInput}
+          placeholder={`Search ${topic || 'items'}...`}
+          placeholderTextColor="#8E8E93"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoFocus
+        />
       </View>
+      
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#FFD700" />
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: '#FFFFFF' }]}>
-            {error}
-          </Text>
+          <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : (
         <FlatList
@@ -223,13 +230,11 @@ export default function SearchScreen() {
           ListEmptyComponent={
             searchQuery ? (
               <View style={styles.emptyContainer}>
-                <Text style={[styles.emptyText, { color: '#FFFFFF' }]}>
-                  No results found
-                </Text>
+                <Text style={styles.emptyText}>No results found</Text>
               </View>
             ) : (
               <View style={styles.emptyContainer}>
-                <Text style={[styles.emptyText, { color: '#FFFFFF' }]}>
+                <Text style={styles.emptyText}>
                   Search for {topic || 'items'} to add to your rankings
                 </Text>
               </View>
@@ -244,6 +249,7 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#1C1C1E',
   },
   header: {
     flexDirection: 'row',
@@ -254,20 +260,6 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(28, 28, 30, 0.8)',
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   backButtonText: {
     fontSize: 24,
@@ -282,48 +274,15 @@ const styles = StyleSheet.create({
   searchContainer: {
     padding: 16,
   },
-  searchInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1C1C1E',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#FFD700',
-    shadowColor: "#FFD700",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.23,
-    shadowRadius: 2.62,
-    elevation: 4,
-  },
-  searchIcon: {
-    marginLeft: 12,
-  },
   searchInput: {
-    height: 45,
+    height: 40,
     borderRadius: 10,
     paddingHorizontal: 16,
     fontSize: 16,
-    flex: 1,
-    paddingLeft: 8,
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  typeBadge: {
-    backgroundColor: '#FFD700',
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  typeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#000000',
+    borderWidth: 2,
+    backgroundColor: '#2C2C2E',
+    color: '#FFFFFF',
+    borderColor: '#FFD700',
   },
   resultsList: {
     paddingHorizontal: 16,
@@ -334,22 +293,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderRadius: 10,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderLeftWidth: 3,
-    borderLeftColor: '#FFD700',
+    marginBottom: 8,
+    backgroundColor: '#2C2C2E',
   },
   resultImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 10,
+    width: 50,
+    height: 50,
+    borderRadius: 8,
     marginRight: 12,
   },
   resultTextContainer: {
@@ -358,19 +308,22 @@ const styles = StyleSheet.create({
   resultTitle: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#FFFFFF',
     marginBottom: 4,
-    flex: 1,
   },
   resultArtist: {
     fontSize: 14,
+    color: '#8E8E93',
     marginBottom: 4,
   },
   resultRating: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#FFD700',
   },
   resultYear: {
     fontSize: 14,
+    color: '#8E8E93',
   },
   loadingContainer: {
     flex: 1,
@@ -386,6 +339,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 16,
     textAlign: 'center',
+    color: '#FF3B30',
   },
   emptyContainer: {
     flex: 1,
@@ -397,5 +351,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     textAlign: 'center',
+    color: '#FFFFFF',
   },
-});
+}); 

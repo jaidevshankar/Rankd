@@ -10,19 +10,19 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: isDark ? '#0A84FF' : '#007AFF',
-        tabBarInactiveTintColor: isDark ? '#8E8E93' : '#8E8E93',
+        tabBarActiveTintColor: '#FFD700',
+        tabBarInactiveTintColor: '#8E8E93',
         tabBarStyle: {
           borderTopWidth: 1,
-          borderTopColor: isDark ? '#38383A' : '#E5E5EA',
+          borderTopColor: '#2C2C2E',
           height: 75,
           paddingBottom: 13,
-          backgroundColor: isDark ? '#000000' : '#FFFFFF',
+          backgroundColor: '#1C1C1E',
         },
         tabBarLabelStyle: {
           fontSize: 12,
           marginTop: 3,
-          color: isDark ? '#FFFFFF' : '#000000',
+          color: '#FFFFFF',
         },
         tabBarIconStyle: {
           marginTop: 6,
@@ -40,18 +40,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="search"
+        name="friends"
         options={{
-          title: 'Search',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="people"
-        options={{
-          title: 'People',
+          title: 'Friends',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people" size={size} color={color} />
           ),

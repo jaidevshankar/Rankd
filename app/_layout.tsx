@@ -1,14 +1,19 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme } from 'react-native';
+import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
+import { View, StyleSheet } from 'react-native';
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+function RootLayoutContent() {
+  const { isDark } = useTheme();
 
   return (
-    <>
-      <Stack>
+    <View style={[styles.container, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen 
           name="search" 
@@ -32,7 +37,21 @@ export default function RootLayout() {
           }} 
         />
       </Stack>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-    </>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+    </View>
   );
 }
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <RootLayoutContent />
+    </ThemeProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});

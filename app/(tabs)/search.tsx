@@ -6,14 +6,14 @@ import { searchService, SearchResult } from '../services/search';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { rankingService } from '../services/api';
 import { AntDesign } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useTheme();
   const router = useRouter();
   
   // Get the topic from route params
@@ -130,7 +130,7 @@ export default function SearchScreen() {
     <TouchableOpacity 
       style={[
         styles.resultItem,
-        { backgroundColor: '#1C1C1E' }
+        { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' }
       ]}
       onPress={() => handleSelectItem(item)}
     >
@@ -148,25 +148,25 @@ export default function SearchScreen() {
       )}
       <View style={styles.resultTextContainer}>
         <View style={styles.titleContainer}>
-          <Text style={[styles.resultTitle, { color: '#FFFFFF' }]}>
+          <Text style={[styles.resultTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
             {item.title}
           </Text>
           <View style={styles.typeBadge}>
-            <Text style={styles.typeText}>{item.type}</Text>
+            <Text style={[styles.typeText, { color: isDark ? '#8E8E93' : '#6C6C70' }]}>{item.type}</Text>
           </View>
         </View>
         {item.artist && (
-          <Text style={[styles.resultArtist, { color: '#8E8E93' }]}>
+          <Text style={[styles.resultArtist, { color: isDark ? '#8E8E93' : '#6C6C70' }]}>
             {item.artist}
           </Text>
         )}
         {item.rating && (
-          <Text style={[styles.resultRating, { color: '#FFD700' }]}>
+          <Text style={[styles.resultRating, { color: isDark ? '#FFD700' : '#FFD700' }]}>
             {item.rating.toFixed(1)} ★
           </Text>
         )}
         {item.year && (
-          <Text style={[styles.resultYear, { color: '#8E8E93' }]}>
+          <Text style={[styles.resultYear, { color: isDark ? '#8E8E93' : '#6C6C70' }]}>
             {item.year}
           </Text>
         )}
@@ -175,29 +175,30 @@ export default function SearchScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: '#000000' }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <AntDesign name="arrowleft" size={24} color="#FFD700" />
+          <AntDesign name="arrowleft" size={24} color={isDark ? '#FFD700' : '#FFD700'} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Search {topic || 'Items'}</Text>
+        <Text style={[styles.headerTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>Search {topic || 'Items'}</Text>
       </View>
       <View style={styles.searchContainer}>
         <View style={styles.searchInputWrapper}>
-          <AntDesign name="search1" size={20} color="#8E8E93" style={styles.searchIcon} />
+          <AntDesign name="search1" size={20} color={isDark ? '#8E8E93' : '#8E8E93'} style={styles.searchIcon} />
           <TextInput
             style={[
               styles.searchInput,
               { 
-                backgroundColor: '#1C1C1E',
-                color: '#FFFFFF',
+                backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7',
+                color: isDark ? '#FFFFFF' : '#000000',
+                borderColor: isDark ? '#3A3A3C' : '#E5E5EA'
               }
             ]}
             placeholder={`Search ${topic || 'items'}...`}
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={isDark ? '#8E8E93' : '#6C6C70'}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoFocus
@@ -206,11 +207,11 @@ export default function SearchScreen() {
       </View>
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FFD700" />
+          <ActivityIndicator size="large" color={isDark ? '#FFD700' : '#FFD700'} />
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: '#FFFFFF' }]}>
+          <Text style={[styles.errorText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
             {error}
           </Text>
         </View>
@@ -223,13 +224,13 @@ export default function SearchScreen() {
           ListEmptyComponent={
             searchQuery ? (
               <View style={styles.emptyContainer}>
-                <Text style={[styles.emptyText, { color: '#FFFFFF' }]}>
+                <Text style={[styles.emptyText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
                   No results found
                 </Text>
               </View>
             ) : (
               <View style={styles.emptyContainer}>
-                <Text style={[styles.emptyText, { color: '#FFFFFF' }]}>
+                <Text style={[styles.emptyText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
                   Search for {topic || 'items'} to add to your rankings
                 </Text>
               </View>

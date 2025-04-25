@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import RankingList from '../components/RankingList';
 import { rankingService } from '../services/api';
+import { useTheme } from '../../contexts/ThemeContext';
 
 // Default topics as fallback
 const DEFAULT_TOPICS = ['Movies', 'TV Shows', 'Albums', 'Books', 'Video Games', 'Restaurants'];
@@ -10,6 +11,7 @@ export default function RankingsScreen() {
   const [topics, setTopics] = useState<string[]>(DEFAULT_TOPICS);
   const [selectedTopic, setSelectedTopic] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const { isDark } = useTheme();
 
   // In a real app, we'd get the user ID from authentication
   // For now, we'll use a fixed user ID 
@@ -45,16 +47,16 @@ export default function RankingsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
         <ActivityIndicator size="large" color="#FFD700" />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Rankings</Text>
+    <View style={[styles.container, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
+      <View style={[styles.header, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF', borderBottomColor: isDark ? '#2C2C2E' : '#E5E5EA' }]}>
+        <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>Rankings</Text>
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
@@ -66,12 +68,14 @@ export default function RankingsScreen() {
               onPress={() => setSelectedTopic(topic)}
               style={[
                 styles.topicButton,
+                { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' },
                 selectedTopic === topic && styles.selectedTopicButton,
               ]}
             >
               <Text
                 style={[
                   styles.topicButtonText,
+                  { color: isDark ? '#FFFFFF' : '#000000' },
                   selectedTopic === topic && styles.selectedTopicButtonText,
                 ]}
               >
@@ -84,8 +88,8 @@ export default function RankingsScreen() {
       {selectedTopic ? (
         <RankingList topic={selectedTopic} userId={userId} />
       ) : (
-        <View style={styles.noTopicContainer}>
-          <Text style={styles.noTopicText}>Select a topic to view rankings</Text>
+        <View style={[styles.noTopicContainer, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
+          <Text style={[styles.noTopicText, { color: isDark ? '#8E8E93' : '#6C6C70' }]}>Select a topic to view rankings</Text>
         </View>
       )}
     </View>
@@ -95,47 +99,35 @@ export default function RankingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1C1C1E',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1C1C1E',
   },
   header: {
     padding: 16,
     paddingTop: 48,
-    backgroundColor: '#1C1C1E',
     borderBottomWidth: 1,
-    borderBottomColor: '#2C2C2E',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     marginBottom: 16,
   },
   topicScrollContainer: {
     paddingRight: 16,
   },
-  topicContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
   topicButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: '#2C2C2E',
     marginRight: 8,
   },
   selectedTopicButton: {
     backgroundColor: '#FFD700',
   },
   topicButtonText: {
-    color: '#FFFFFF',
     fontWeight: '600',
   },
   selectedTopicButtonText: {
@@ -148,7 +140,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   noTopicText: {
-    color: '#8E8E93',
     fontSize: 16,
     textAlign: 'center',
   },

@@ -3,12 +3,11 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
-import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const { toggleTheme } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
@@ -19,24 +18,14 @@ export default function TabLayout() {
           </Text>
         </View>
       </View>
+      
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: isDark ? '#FFD700' : '#007AFF',
-          tabBarInactiveTintColor: isDark ? '#8E8E93' : '#999999',
+          tabBarActiveTintColor: '#FFD700',
+          tabBarInactiveTintColor: isDark ? '#8E8E93' : '#C7C7CC',
           tabBarStyle: {
-            borderTopWidth: 1,
-            borderTopColor: isDark ? '#2C2C2E' : '#E5E5EA',
-            height: 75,
-            paddingBottom: 13,
             backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
-          },
-          tabBarLabelStyle: {
-            fontSize: 12,
-            marginTop: 3,
-            color: isDark ? '#FFFFFF' : '#000000',
-          },
-          tabBarIconStyle: {
-            marginTop: 6,
+            borderTopColor: isDark ? '#2C2C2E' : '#E5E5EA',
           },
           headerShown: false,
         }}
@@ -51,15 +40,6 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="friends"
-          options={{
-            title: 'Friends',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="people" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
           name="rankings"
           options={{
             title: 'Rankings',
@@ -69,34 +49,15 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="search"
-          options={{
-            title: 'Search',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="search" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
           name="settings"
           options={{
             title: 'Settings',
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="settings-outline" size={size} color={color} />
+              <Ionicons name="settings" size={size} color={color} />
             ),
           }}
         />
       </Tabs>
-      <TouchableOpacity
-        onPress={toggleTheme}
-        style={[styles.themeButton, { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' }]}
-      >
-        <Ionicons
-          name={isDark ? 'sunny' : 'moon'}
-          size={24}
-          color={isDark ? '#FFD700' : '#000000'}
-        />
-      </TouchableOpacity>
     </View>
   );
 }
@@ -119,24 +80,6 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 24,
     fontWeight: 'bold',
-  },
-  themeButton: {
-    position: 'absolute',
-    bottom: 80,
-    right: 16,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
 });
 

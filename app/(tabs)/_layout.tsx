@@ -21,8 +21,8 @@ export default function TabLayout() {
       </View>
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: isDark ? '#FFD700' : '#007AFF',
-          tabBarInactiveTintColor: isDark ? '#8E8E93' : '#999999',
+          tabBarActiveTintColor: '#FFD700',
+          tabBarInactiveTintColor: '#8E8E93',
           tabBarStyle: {
             borderTopWidth: 1,
             borderTopColor: isDark ? '#2C2C2E' : '#E5E5EA',
@@ -69,13 +69,13 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="search"
-          options={{
-            title: 'Search',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="search" size={size} color={color} />
-            ),
-          }}
+        name="search"
+        options={{
+          title: 'Search',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="search" size={size} color={color} />
+          ),
+        }}
         />
       </Tabs>
       <TouchableOpacity

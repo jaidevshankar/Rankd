@@ -4,7 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import FriendList from '../components/FriendList';
 
 export default function FriendsScreen() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const { isDark } = useTheme();
 
   // In a real app, we'd get the user ID from authentication

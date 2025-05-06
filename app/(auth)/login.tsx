@@ -4,42 +4,34 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useAuth } from '../../contexts/AuthContext'; // Corrected import path
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
+  const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter(); // Keep for navigation to signup
+  const router = useRouter();
   const { isDark } = useTheme();
-  const { signIn } = useAuth(); // Get signIn from the AuthContext
+  const { signIn } = useAuth();
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password.');
+    if (!emailOrUsername || !password) {
+      Alert.alert('Error', 'Please enter both email/username and password.');
       return;
     }
+    
     setLoading(true);
     try {
-      // Simulate API call for login
-      console.log('Attempting to sign in with:', email);
-      // In a real app, you would await an API call here:
-      // await actualLoginService(email, password);
+      // Call the signIn method from the auth context
+      await signIn({
+        email_or_username: emailOrUsername,
+        password: password
+      });
       
-      // Call signIn from AuthContext to update auth state
-      signIn({ email: email, id: '123' }); // Pass some user data
-      
-      // Alert.alert('Success', 'Logged in successfully!');
-      // Redirection is now handled by AuthProvider in contexts/AuthContext.tsx
-      // No need for router.replace('/(tabs)/') here.
-
+      // The AuthContext will handle the redirection
     } catch (error) {
-      console.error('Login failed:', error);
-      let errorMessage = 'Invalid email or password.';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      Alert.alert('Login Failed', errorMessage);
+      // Error handling is done in the AuthContext
+      console.error('Login error caught in screen:', error);
     } finally {
       setLoading(false);
     }
@@ -99,9 +91,8 @@ export default function LoginScreen() {
         style={styles.input}
         placeholder="Email or Username"
         placeholderTextColor={isDark ? '#AAA' : '#999'}
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
+        value={emailOrUsername}
+        onChangeText={setEmailOrUsername}
         autoCapitalize="none"
       />
       <TextInput
@@ -119,7 +110,7 @@ export default function LoginScreen() {
       >
         <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Login'}</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
+      <TouchableOpacity onPress={() => router.push('/signup' as any)}>
         <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
       </TouchableOpacity>
     </View>

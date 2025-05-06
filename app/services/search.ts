@@ -169,4 +169,6 @@ export const searchService = {
       return [];
     }
   }
-}; 
+};
+
+export default {}; 

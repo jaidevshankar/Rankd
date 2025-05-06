@@ -5,26 +5,26 @@ import { Platform } from 'react-native';
 // For iOS simulator, localhost works
 // For physical devices, you need your computer's IP address on the local network
 const getBaseUrl = () => {
-  if (Platform.OS === 'android') {
-    // Special IP for Android emulator to connect to host localhost
-    return 'http://10.0.2.2:8000';
-  } else if (Platform.OS === 'ios') {
-    // iOS simulator can use localhost
-    return 'http://localhost:8000';
+  // Use the host's IP address for all platforms in development
+  if (__DEV__) {
+    return 'http://10.193.129.73:8001';
   } else {
-    // For web or fallback
-    return 'http://127.0.0.1:8000';
+    // Production fallback
+    if (Platform.OS === 'android') {
+      // Special IP for Android emulator to connect to host localhost
+      return 'http://10.0.2.2:8001';
+    } else if (Platform.OS === 'ios') {
+      // iOS simulator can use localhost
+      return 'http://localhost:8001';
+    } else {
+      // For web or fallback
+      return 'http://127.0.0.1:8001';
+    }
   }
 };
 
-// Your machine's actual local network IP (for physical devices)
-// Update this if network changes
-const LOCAL_MACHINE_IP = '10.193.129.73';
-
-// Select the appropriate base URL
-// Use LOCAL_MACHINE_IP for physical devices if they're on the same network
-const API_BASE_URL = __DEV__ && Platform.OS !== 'web' ? 
-  `http://${LOCAL_MACHINE_IP}:8000` : getBaseUrl();
+// For development, always use the explicit IP
+const API_BASE_URL = __DEV__ ? 'http://10.193.129.73:8001' : getBaseUrl();
 
 export interface RankingItem {
   user_id: number;
@@ -193,4 +193,6 @@ export const rankingService = {
       return { is_calibration: true, item_count: 0, items_needed: 10 };
     }
   }
-}; 
+};
+
+export default {}; 

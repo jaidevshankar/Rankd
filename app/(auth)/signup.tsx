@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useTheme } from '../../contexts/ThemeContext'; // Assuming ThemeContext is accessible
-// import { authService } from '../services/api'; // Placeholder for auth service
+import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function SignupScreen() {
   const [username, setUsername] = useState('');
@@ -13,7 +13,8 @@ export default function SignupScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { isDark } = useTheme(); // Assuming you have a ThemeContext
+  const { isDark } = useTheme();
+  const { signUp } = useAuth();
 
   const handleSignup = async () => {
     if (!username || !email || !password || !confirmPassword) {
@@ -26,14 +27,18 @@ export default function SignupScreen() {
     }
     setLoading(true);
     try {
-      // Placeholder for actual signup logic
-      // const user = await authService.signup(username, email, password);
-      // console.log('Signed up user:', user);
+      // Call the signUp method from the auth context
+      await signUp({
+        username,
+        email,
+        password
+      });
+      
       Alert.alert('Success', 'Account created successfully! Please log in.');
-      router.replace('/(auth)/login'); // Navigate to login screen after signup
+      router.replace('/login' as any);
     } catch (error) {
-      console.error('Signup failed:', error);
-      Alert.alert('Signup Failed', 'Could not create account. Please try again.');
+      // Most error handling is done in the AuthContext
+      console.error('Signup error caught in screen:', error);
     } finally {
       setLoading(false);
     }
@@ -130,7 +135,7 @@ export default function SignupScreen() {
       >
         <Text style={styles.buttonText}>{loading ? 'Creating Account...' : 'Sign Up'}</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+      <TouchableOpacity onPress={() => router.push('/login' as any)}>
         <Text style={styles.linkText}>Already have an account? Login</Text>
       </TouchableOpacity>
     </View>

@@ -1,4 +1,11 @@
 spotipy==2.23.0
 python-dotenv==1.0.0
 flask==3.0.0
-requests==2.31.0 
+requests==2.31.0
+fastapi==0.103.1
+uvicorn==0.23.2
+pydantic==2.3.0
+pydantic-settings==2.0.3
+pydantic[email]==2.3.0
+supabase==1.0.4
+bcrypt==4.0.1 

@@ -69,16 +69,6 @@ export default function TabLayout() {
           }}
         />
       </Tabs>
-      <TouchableOpacity
-        onPress={toggleTheme}
-        style={[styles.themeButton, { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' }]}
-      >
-        <Ionicons
-          name={isDark ? 'sunny' : 'moon'}
-          size={24}
-          color={isDark ? '#FFD700' : '#000000'}
-        />
-      </TouchableOpacity>
     </View>
   );
 }
@@ -101,24 +91,6 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 24,
     fontWeight: 'bold',
-  },
-  themeButton: {
-    position: 'absolute',
-    bottom: 80,
-    right: 16,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
 });
 

@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator
 import RankingList from '../components/RankingList';
 import { rankingService } from '../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Default topics as fallback
 const DEFAULT_TOPICS = ['Movies', 'TV Shows', 'Albums', 'Books', 'Video Games', 'Restaurants'];
@@ -12,10 +13,7 @@ export default function RankingsScreen() {
   const [selectedTopic, setSelectedTopic] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const { isDark } = useTheme();
-
-  // In a real app, we'd get the user ID from authentication
-  // For now, we'll use a fixed user ID 
-  const userId = 1;
+  const { user, isLoading: authLoading } = useAuth();
 
   useEffect(() => {
     // Load topics when component mounts
@@ -45,17 +43,25 @@ export default function RankingsScreen() {
     loadTopics();
   }, []);
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
+      <View style={[styles.loadingContainer, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}> 
         <ActivityIndicator size="large" color="#FFD700" />
       </View>
     );
   }
 
+  if (!user) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}> 
+        <Text style={{ color: isDark ? '#FFFFFF' : '#000000', fontSize: 18 }}>Not logged in.</Text>
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
-      <View style={[styles.header, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF', borderBottomColor: isDark ? '#2C2C2E' : '#E5E5EA' }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}> 
+      <View style={[styles.header, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF', borderBottomColor: isDark ? '#2C2C2E' : '#E5E5EA' }]}> 
         <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>Rankings</Text>
         <ScrollView 
           horizontal 
@@ -86,9 +92,9 @@ export default function RankingsScreen() {
         </ScrollView>
       </View>
       {selectedTopic ? (
-        <RankingList topic={selectedTopic} userId={userId} />
+        <RankingList topic={selectedTopic} userId={user.user_id} />
       ) : (
-        <View style={[styles.noTopicContainer, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
+        <View style={[styles.noTopicContainer, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}> 
           <Text style={[styles.noTopicText, { color: isDark ? '#8E8E93' : '#6C6C70' }]}>Select a topic to view rankings</Text>
         </View>
       )}

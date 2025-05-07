@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { friendsService } from '../services/api';
 
 // Sample data - in a real app, this would come from your backend
 const FRIENDS_DATA = [
@@ -15,9 +17,9 @@ const FRIENDS_DATA = [
 ];
 
 type Friend = {
-  id: string;
-  name: string;
-  status: 'Online' | 'Offline';
+  user_id: number;
+  username: string;
+  email: string;
 };
 
 type FriendListProps = {
@@ -26,36 +28,59 @@ type FriendListProps = {
 
 export default function FriendList({ userId }: FriendListProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { isDark } = useTheme();
 
-  const filteredFriends = FRIENDS_DATA.filter(friend =>
-    friend.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const fetchFriends = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await friendsService.getFriends(userId);
+      setFriends(data);
+    } catch (err) {
+      setError('Failed to load friends');
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    fetchFriends();
+  }, [fetchFriends]);
+
+  const filteredFriends = friends.filter(friend =>
+    friend.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    friend.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const renderItem = ({ item }: { item: Friend }) => (
-    <TouchableOpacity 
+    <View
       style={[
         styles.friendItem,
         { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' }
       ]}
     >
       <View style={styles.friendInfo}>
-        <Text style={[styles.friendName, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-          {item.name}
+        <Text style={[styles.friendName, { color: isDark ? '#FFFFFF' : '#000000' }]}> 
+          {item.username}
         </Text>
-        <Text style={[
-          styles.friendStatus,
-          { color: item.status === 'Online' ? '#34C759' : '#8E8E93' }
-        ]}>
-          {item.status}
-        </Text>
+        <Text style={styles.friendStatus}>{item.email}</Text>
       </View>
-    </TouchableOpacity>
+    </View>
   );
+
+  if (loading) {
+    return <Text style={{ color: isDark ? '#FFF' : '#000', textAlign: 'center', marginTop: 32 }}>Loading friends...</Text>;
+  }
+  if (error) {
+    return <Text style={{ color: 'red', textAlign: 'center', marginTop: 32 }}>{error}</Text>;
+  }
 
   return (
     <View style={styles.container}>
-      <View style={[styles.searchContainer, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
+      <View style={[styles.searchContainer, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}> 
         <TextInput
           style={[
             styles.searchInput,
@@ -74,8 +99,9 @@ export default function FriendList({ userId }: FriendListProps) {
       <FlatList
         data={filteredFriends}
         renderItem={renderItem}
-        keyExtractor={item => item.id}
+        keyExtractor={item => item.user_id.toString()}
         contentContainerStyle={styles.friendsList}
+        ListEmptyComponent={<Text style={{ color: isDark ? '#FFF' : '#000', textAlign: 'center', marginTop: 32 }}>No friends found.</Text>}
       />
     </View>
   );

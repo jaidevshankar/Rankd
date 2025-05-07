@@ -204,4 +204,37 @@ export const rankingService = {
   }
 };
 
+export const friendsService = {
+  // Get all accepted friends for a user
+  getFriends: async (userId: number) => {
+    const baseUrl = await getApiBaseUrl();
+    const response = await axios.get(`${baseUrl}/friends`, { params: { user_id: userId } });
+    return response.data;
+  },
+  // Fuzzy search for users to add as friends
+  searchUsers: async (query: string, excludeUserId: number) => {
+    const baseUrl = await getApiBaseUrl();
+    const response = await axios.get(`${baseUrl}/friends/search`, { params: { query, exclude_user_id: excludeUserId } });
+    return response.data;
+  },
+  // Send a friend request
+  sendFriendRequest: async (userId: number, friendId: number) => {
+    const baseUrl = await getApiBaseUrl();
+    const response = await axios.post(`${baseUrl}/friends/request`, { user_id: userId, friend_id: friendId });
+    return response.data;
+  },
+  // Accept a friend request
+  acceptFriendRequest: async (userId: number, friendId: number) => {
+    const baseUrl = await getApiBaseUrl();
+    const response = await axios.post(`${baseUrl}/friends/accept`, { user_id: userId, friend_id: friendId });
+    return response.data;
+  },
+  // Get outgoing and incoming friend requests
+  getFriendRequests: async (userId: number) => {
+    const baseUrl = await getApiBaseUrl();
+    const response = await axios.get(`${baseUrl}/friends/requests`, { params: { user_id: userId } });
+    return response.data;
+  },
+};
+
 export default {}; 

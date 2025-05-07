@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from utils.auth_simplified import router as auth_router
 from utils.ranking import app as ranking_app
+from utils.friends import router as friends_router
 
 app = FastAPI()
 
@@ -21,6 +22,8 @@ app.include_router(auth_router, prefix="/auth", tags=["authentication"])
 # All routes from ranking.py will be available at the root path
 for route in ranking_app.routes:
     app.routes.append(route)
+
+app.include_router(friends_router, prefix="/friends", tags=["friends"])
 
 @app.get("/")
 async def root():

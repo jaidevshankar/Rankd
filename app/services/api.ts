@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
+import { getApiBaseUrl } from './getApiBaseUrl';
 
 // For Android devices, use 10.0.2.2 to connect to host's localhost
 // For iOS simulator, localhost works
@@ -24,7 +25,7 @@ const getBaseUrl = () => {
 };
 
 // For development, always use the explicit IP
-const API_BASE_URL = __DEV__ ? 'http://10.193.129.73:8001' : getBaseUrl();
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || getBaseUrl();
 
 export interface RankingItem {
   user_id: number;
@@ -73,8 +74,9 @@ export interface ComparisonResponse {
 export const rankingService = {
   // Compare items
   compareItems: async (data: RankingItem): Promise<RankingResponse> => {
+    const baseUrl = await getApiBaseUrl();
     try {
-      const response = await axios.post(`${API_BASE_URL}/compare`, data);
+      const response = await axios.post(`${baseUrl}/compare`, data);
       return response.data;
     } catch (error) {
       console.error('Error comparing items:', error);
@@ -84,8 +86,9 @@ export const rankingService = {
 
   // Set category for an item (calibration phase)
   setCategory: async (data: CalibrationRequest): Promise<RankingResponse> => {
+    const baseUrl = await getApiBaseUrl();
     try {
-      const response = await axios.post(`${API_BASE_URL}/set_category`, data);
+      const response = await axios.post(`${baseUrl}/set_category`, data);
       return response.data;
     } catch (error) {
       console.error('Error setting category:', error);
@@ -95,8 +98,9 @@ export const rankingService = {
 
   // Respond to comparison question
   respondComparison: async (data: ComparisonResponse): Promise<RankingResponse> => {
+    const baseUrl = await getApiBaseUrl();
     try {
-      const response = await axios.post(`${API_BASE_URL}/respond_comparison`, data);
+      const response = await axios.post(`${baseUrl}/respond_comparison`, data);
       return response.data;
     } catch (error) {
       console.error('Error responding to comparison:', error);
@@ -106,8 +110,9 @@ export const rankingService = {
 
   // Rerank an item
   rerankItem: async (data: RankingItem): Promise<RankingResponse> => {
+    const baseUrl = await getApiBaseUrl();
     try {
-      const response = await axios.post(`${API_BASE_URL}/rerank`, data);
+      const response = await axios.post(`${baseUrl}/rerank`, data);
       return response.data;
     } catch (error) {
       console.error('Error reranking item:', error);
@@ -117,8 +122,9 @@ export const rankingService = {
 
   // Remove an item
   removeItem: async (data: RankingItem): Promise<{ message: string }> => {
+    const baseUrl = await getApiBaseUrl();
     try {
-      const response = await axios.post(`${API_BASE_URL}/remove`, data);
+      const response = await axios.post(`${baseUrl}/remove`, data);
       return response.data;
     } catch (error) {
       console.error('Error removing item:', error);
@@ -128,10 +134,11 @@ export const rankingService = {
 
   // Get rankings for a topic
   getRankings: async (topic: string, userId: number = 1): Promise<RankingResponse> => {
+    const baseUrl = await getApiBaseUrl();
     try {
-      console.log(`Fetching rankings from: ${API_BASE_URL}/rankings for topic: ${topic}, userId: ${userId}`);
+      console.log(`Fetching rankings from: ${baseUrl}/rankings for topic: ${topic}, userId: ${userId}`);
       
-      const response = await axios.get(`${API_BASE_URL}/rankings`, {
+      const response = await axios.get(`${baseUrl}/rankings`, {
         params: {
           topic: topic,
           user_id: userId
@@ -150,7 +157,7 @@ export const rankingService = {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.code === 'ERR_NETWORK') {
-          console.error(`Network error connecting to ${API_BASE_URL}. Is the server running?`);
+          console.error(`Network error connecting to ${baseUrl}. Is the server running?`);
         } else if (error.response) {
           console.error(`Server returned error ${error.response.status}:`, error.response.data);
         } else if (error.request) {
@@ -164,8 +171,9 @@ export const rankingService = {
 
   // Get all topics
   getTopics: async (): Promise<string[]> => {
+    const baseUrl = await getApiBaseUrl();
     try {
-      const response = await axios.get(`${API_BASE_URL}/topics`);
+      const response = await axios.get(`${baseUrl}/topics`);
       if (response.data && Array.isArray(response.data.topics)) {
         return response.data.topics;
       }
@@ -179,8 +187,9 @@ export const rankingService = {
 
   // Check if user is in calibration mode
   checkCalibration: async (topic: string, userId: number = 1): Promise<{ is_calibration: boolean, item_count: number, items_needed: number }> => {
+    const baseUrl = await getApiBaseUrl();
     try {
-      const response = await axios.get(`${API_BASE_URL}/check_calibration`, {
+      const response = await axios.get(`${baseUrl}/check_calibration`, {
         params: {
           topic: topic,
           user_id: userId

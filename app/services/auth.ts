@@ -1,26 +1,7 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Use the same base URL configuration as the API service
-const getBaseUrl = () => {
-  // Use the host's IP address for all platforms in development
-  if (__DEV__) {
-    return 'http://10.193.129.73:8001';
-  } else {
-    // Production fallback
-    if (Platform.OS === 'android') {
-      return 'http://10.0.2.2:8001';
-    } else if (Platform.OS === 'ios') {
-      return 'http://localhost:8001';
-    } else {
-      return 'http://127.0.0.1:8001';
-    }
-  }
-};
-
-// For development, always use the explicit IP
-const API_BASE_URL = __DEV__ ? 'http://10.193.129.73:8001' : getBaseUrl();
+import { getApiBaseUrl } from './getApiBaseUrl';
 
 const AUTH_TOKEN_KEY = 'auth_token';
 const USER_DATA_KEY = 'user_data';
@@ -54,18 +35,15 @@ export const authService = {
   signup: async (data: SignupData): Promise<AuthResponse> => {
     try {
       console.log('Attempting signup with:', JSON.stringify(data));
-      console.log('API URL:', `${API_BASE_URL}/auth/signup`);
-      
-      const response = await axios.post(`${API_BASE_URL}/auth/signup`, data);
+      const baseUrl = await getApiBaseUrl();
+      console.log('API URL:', `${baseUrl}/auth/signup`);
+      const response = await axios.post(`${baseUrl}/auth/signup`, data);
       console.log('Signup response:', JSON.stringify(response.data));
-      
-      // Store the user data
       await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify({
         user_id: response.data.user_id,
         username: response.data.username,
         email: response.data.email
       }));
-      
       return response.data;
     } catch (error) {
       console.error('Error during signup:', error);
@@ -80,18 +58,15 @@ export const authService = {
   login: async (data: LoginData): Promise<AuthResponse> => {
     try {
       console.log('Attempting login with:', JSON.stringify(data));
-      console.log('API URL:', `${API_BASE_URL}/auth/login`);
-      
-      const response = await axios.post(`${API_BASE_URL}/auth/login`, data);
+      const baseUrl = await getApiBaseUrl();
+      console.log('API URL:', `${baseUrl}/auth/login`);
+      const response = await axios.post(`${baseUrl}/auth/login`, data);
       console.log('Login response:', JSON.stringify(response.data));
-      
-      // Store the user data
       await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify({
         user_id: response.data.user_id,
         username: response.data.username,
         email: response.data.email
       }));
-      
       return response.data;
     } catch (error) {
       console.error('Error during login:', error);

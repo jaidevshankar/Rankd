@@ -50,7 +50,8 @@
     "react-native-web": "^0.20.0",
     "react-native-webview": "13.13.5",
     "react-test-renderer": "^19.0.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "expo-network": "~7.1.5"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

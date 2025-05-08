@@ -41,10 +41,17 @@ def search_users(query: str = Query(..., min_length=2), exclude_user_id: int = Q
 # --- Send a friend request ---
 @router.post("/request")
 def send_friend_request(user_id: int = Body(...), friend_id: int = Body(...)):
-    # Check if already friends or pending
-    existing = supabase.table("Friends").select("*").eq("user_id", user_id).eq("friend_id", friend_id).execute().data
+    # Check for any existing friendship or pending request in either direction
+    existing_1 = supabase.table("Friends").select("*") \
+        .eq("user_id", user_id).eq("friend_id", friend_id).execute().data
+    existing_2 = supabase.table("Friends").select("*") \
+        .eq("user_id", friend_id).eq("friend_id", user_id).execute().data
+    existing = (existing_1 or []) + (existing_2 or [])
     if existing:
-        raise HTTPException(status_code=400, detail="Friend request already sent or already friends.")
+        if any(e.get("accepted") for e in existing):
+            raise HTTPException(status_code=400, detail="You are already friends.")
+        else:
+            raise HTTPException(status_code=400, detail="Friend request already sent or pending.")
     # Insert request (accepted = False)
     supabase.table("Friends").insert({
         "user_id": user_id,

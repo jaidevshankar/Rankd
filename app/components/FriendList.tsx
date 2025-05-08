@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity } from 'r
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { friendsService } from '../services/api';
+import { useFocusEffect } from 'expo-router';
 
 // Sample data - in a real app, this would come from your backend
 const FRIENDS_DATA = [
@@ -49,6 +50,12 @@ export default function FriendList({ userId }: FriendListProps) {
   useEffect(() => {
     fetchFriends();
   }, [fetchFriends]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchFriends();
+    }, [fetchFriends])
+  );
 
   const filteredFriends = friends.filter(friend =>
     friend.username.toLowerCase().includes(searchQuery.toLowerCase()) ||

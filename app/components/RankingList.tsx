@@ -160,19 +160,6 @@ export default function RankingList({ topic, userId }: RankingListProps) {
                   </Text>
                 </View>
               )}
-              {item.category && (
-                <View style={styles.categoryContainer}>
-                  <Text style={styles.categoryLabel}>Category:</Text>
-                  <Text style={[
-                    styles.categoryValue,
-                    item.category === 'Loved' && styles.lovedCategory,
-                    item.category === 'Liked' && styles.likedCategory,
-                    item.category === 'Disliked' && styles.dislikedCategory
-                  ]}>
-                    {item.category}
-                  </Text>
-                </View>
-              )}
             </View>
           </View>
           <View style={styles.buttonContainer}>
@@ -315,28 +302,6 @@ const styles = StyleSheet.create({
     color: '#FFD700',
     fontSize: 14,
     fontWeight: '600',
-  },
-  categoryContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  categoryLabel: {
-    color: '#8E8E93',
-    fontSize: 14,
-    marginRight: 4,
-  },
-  categoryValue: {
-    color: '#8E8E93',
-    fontSize: 14,
-  },
-  lovedCategory: {
-    color: '#4CD964', // Green
-  },
-  likedCategory: {
-    color: '#5AC8FA', // Blue
-  },
-  dislikedCategory: {
-    color: '#FF9500', // Orange
   },
   buttonContainer: {
     flexDirection: 'row',

@@ -27,7 +27,6 @@ function RootLayoutNav() {
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="search" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="calibration" options={{ presentation: 'card' }} />
       <Stack.Screen name="comparison" options={{ presentation: 'card' }} />
     </Stack>
   );

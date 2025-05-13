@@ -27,16 +27,34 @@ def get_friends(user_id: int):
 # --- Fuzzy search for users to add as friends ---
 @router.get("/search")
 def search_users(query: str = Query(..., min_length=2), exclude_user_id: int = Query(...)):
-    pattern = f"%{query}%"
-    # Search by username
-    users_username = supabase.table("Users").select("user_id, username, email") \
-        .ilike("username", pattern).neq("user_id", exclude_user_id).execute().data
-    # Search by email
-    users_email = supabase.table("Users").select("user_id, username, email") \
-        .ilike("email", pattern).neq("user_id", exclude_user_id).execute().data
-    # Combine and deduplicate by user_id
-    users_dict = {u["user_id"]: u for u in (users_username or []) + (users_email or [])}
-    return list(users_dict.values())
+    # Convert query to lowercase for case-insensitive search
+    query = query.lower()
+    
+    # Search by username and email using case-insensitive pattern matching
+    users = supabase.table("Users").select("user_id, username, email") \
+        .or_(f"username.ilike.%{query}%,email.ilike.%{query}%") \
+        .neq("user_id", exclude_user_id) \
+        .execute().data
+    
+    # Filter out any users that are already friends or have pending requests
+    if users:
+        # Get existing friendships and requests
+        existing = supabase.table("Friends").select("*") \
+            .or_(f"user_id.eq.{exclude_user_id},friend_id.eq.{exclude_user_id}") \
+            .execute().data
+        
+        # Create a set of user IDs that are already connected
+        connected_ids = set()
+        for conn in existing:
+            if conn["user_id"] == exclude_user_id:
+                connected_ids.add(conn["friend_id"])
+            else:
+                connected_ids.add(conn["user_id"])
+        
+        # Filter out users that are already connected
+        users = [u for u in users if u["user_id"] not in connected_ids]
+    
+    return users
 
 # --- Send a friend request ---
 @router.post("/request")

@@ -5,6 +5,7 @@ import { useColorScheme } from 'react-native';
 import { searchService, SearchResult } from './services/search';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { rankingService } from './services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -15,6 +16,8 @@ export default function SearchScreen() {
   
   // Get the topic from route params
   const { topic } = useLocalSearchParams<{ topic: string }>();
+  
+  const { user } = useAuth();
   
   useEffect(() => {
     const search = async () => {
@@ -75,82 +78,49 @@ export default function SearchScreen() {
     try {
       setLoading(true);
       
+      if (!user) {
+        setError('User not logged in');
+        setLoading(false);
+        return;
+      }
+      
       // Extract the real item ID (remove any type prefixes like "movie-", "album-", etc.)
       const itemId = item.id.includes('-') ? item.id.split('-')[1] : item.id;
       
-      // First check if user is in calibration mode
-      const calibrationCheck = await rankingService.checkCalibration(topic as string);
+      // Call the backend to compare the item
+      const response = await rankingService.compareItems({
+        user_id: user.user_id,
+        item_id: itemId,
+        topic_name: topic as string
+      });
       
-      if (calibrationCheck.is_calibration) {
-        // Call the backend to compare the item
-        const response = await rankingService.compareItems({
-          user_id: 1, // Default user ID
-          item_id: itemId,
-          topic_name: topic as string
-        });
-        
-        if (response.status === 'calibration_needed') {
-          // Navigate to calibration screen
-          router.push({
-            pathname: '/calibration',
-            params: { 
-              itemId: response.item_id?.toString() || '',
-              itemName: response.item_name || item.title,
-              topic: topic as string
-            }
-          });
-        } else if (response.status === 'comparison_needed') {
-          // Navigate to comparison screen
-          router.push({
-            pathname: '/comparison',
-            params: {
-              newItemId: response.new_item?.id.toString() || '',
-              newItemName: response.new_item?.name || item.title,
-              comparisonItemId: response.comparison_item?.id.toString() || '',
-              comparisonItemName: response.comparison_item?.name || '',
-              topic: topic as string,
-              category: response.category || ''
-            }
-          });
-        } else {
-          // Navigate to rankings
-          router.push({
-            pathname: '/(tabs)/rankings',
-            params: { topic: topic as string }
-          });
-        }
-      } else {
-        // Directly compare in Elo mode (>10 items)
-        const response = await rankingService.compareItems({
-          user_id: 1,
-          item_id: itemId,
-          topic_name: topic as string
-        });
-        
+      if (response.status === 'comparison_needed') {
         // Navigate to comparison screen
-        if (response.status === 'comparison_needed') {
-          router.push({
-            pathname: '/comparison',
-            params: {
-              newItemId: response.new_item?.id.toString() || '',
-              newItemName: response.new_item?.name || item.title,
-              comparisonItemId: response.comparison_item?.id.toString() || '',
-              comparisonItemName: response.comparison_item?.name || '',
-              topic: topic as string
-            }
-          });
-        } else {
-          // No comparison needed (first item or complete)
-          router.push({
-            pathname: '/(tabs)/rankings',
-            params: { topic: topic as string }
-          });
-        }
+        router.push({
+          pathname: '/comparison',
+          params: {
+            newItemId: response.new_item?.id.toString() || '',
+            newItemName: response.new_item?.name || item.title,
+            comparisonItemId: response.comparison_item?.id.toString() || '',
+            comparisonItemName: response.comparison_item?.name || '',
+            topic: topic as string,
+            userId: user.user_id.toString()
+          }
+        });
+      } else {
+        // Navigate to rankings
+        router.push({
+          pathname: '/(tabs)/rankings',
+          params: { topic: topic as string, userId: user.user_id.toString() }
+        });
       }
     } catch (error) {
-      console.error('Error adding item:', error);
-      setError('Failed to add item. Please try again.');
-    } finally {
+      if (error.response) {
+        console.error('Error comparing items:', error.response.data);
+      } else {
+        console.error('Error comparing items:', error);
+      }
+      setError('Failed to compare item. Please try again.');
       setLoading(false);
     }
   };

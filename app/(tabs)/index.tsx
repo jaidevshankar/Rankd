@@ -70,8 +70,6 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.selectionContainer}>
-        <Text style={[styles.dropdownLabel, { color: isDark ? '#FFFFFF' : '#000000' }]}>Category:</Text>
-        
         <View style={[styles.pickerContainer, { backgroundColor: isDark ? '#2C2C2E' : '#F5F5F5' }]}>
           {Platform.OS === 'ios' ? (
             <Picker
@@ -151,12 +149,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     alignItems: 'center',
     marginTop: 32,
-  },
-  dropdownLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-    alignSelf: 'flex-start',
   },
   pickerContainer: {
     width: '100%',

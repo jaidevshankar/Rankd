@@ -36,3 +36,5 @@ backend/.env
 *.tsbuildinfo
 
 app-example
+
+.env

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { rankingService } from './services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function ComparisonScreen() {
   const router = useRouter();
@@ -12,22 +13,23 @@ export default function ComparisonScreen() {
     comparisonItemId, 
     comparisonItemName,
     topic,
-    category 
+    userId: paramUserId
   } = useLocalSearchParams<{
     newItemId: string;
     newItemName: string;
     comparisonItemId: string;
     comparisonItemName: string;
     topic: string;
-    category?: string;
+    userId?: string;
   }>();
-
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleComparisonResponse = async (isBetter: boolean) => {
-    if (!newItemId || !comparisonItemId || !topic) {
-      setError('Missing item information');
+    const user_id = user?.user_id || (paramUserId ? parseInt(paramUserId) : undefined);
+    if (!newItemId || !comparisonItemId || !topic || !user_id) {
+      setError('Missing item or user information');
       return;
     }
 
@@ -37,12 +39,11 @@ export default function ComparisonScreen() {
 
       // Call API to respond to the comparison
       const response = await rankingService.respondComparison({
-        user_id: 1, // Default user ID
-        new_item_id: parseInt(newItemId),
-        comparison_item_id: parseInt(comparisonItemId),
+        user_id,
+        new_item_id: Number(newItemId),
+        comparison_item_id: Number(comparisonItemId),
         topic_name: topic,
-        is_better: isBetter,
-        category: category || undefined
+        is_better: isBetter
       });
 
       // Handle different response statuses
@@ -56,18 +57,22 @@ export default function ComparisonScreen() {
             comparisonItemId: response.comparison_item.id.toString(),
             comparisonItemName: response.comparison_item.name,
             topic,
-            category: category || undefined
+            userId: user_id.toString()
           }
         });
       } else {
         // No more comparisons needed, go to rankings
         router.push({
           pathname: '/(tabs)/rankings',
-          params: { topic }
+          params: { topic, userId: user_id.toString() }
         });
       }
     } catch (error) {
-      console.error('Error with comparison:', error);
+      if (error.response) {
+        console.error('Error with comparison:', error.response.data);
+      } else {
+        console.error('Error with comparison:', error);
+      }
       setError('Failed to process comparison. Please try again.');
     } finally {
       setLoading(false);
@@ -75,63 +80,76 @@ export default function ComparisonScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Compare Items</Text>
-      </View>
-
-      <View style={styles.content}>
-        <Text style={styles.questionText}>Which is better?</Text>
-        
-        {error && <Text style={styles.errorText}>{error}</Text>}
-        
-        {loading ? (
-          <ActivityIndicator size="large" color="#FFD700" style={styles.loader} />
-        ) : (
-          <View style={styles.comparisonContainer}>
-            <View style={styles.itemsContainer}>
-              <View style={styles.itemBox}>
-                <Text style={styles.itemName}>{newItemName}</Text>
-                <Text style={styles.itemLabel}>New Item</Text>
-              </View>
-              
-              <Text style={styles.vsText}>VS</Text>
-              
-              <View style={styles.itemBox}>
-                <Text style={styles.itemName}>{comparisonItemName}</Text>
-                <Text style={styles.itemLabel}>Existing Item</Text>
-              </View>
-            </View>
-            
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={styles.comparisonButton}
-                onPress={() => handleComparisonResponse(true)}
-              >
-                <Text style={styles.buttonText}>First item is better</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={styles.comparisonButton}
-                onPress={() => handleComparisonResponse(false)}
-              >
-                <Text style={styles.buttonText}>Second item is better</Text>
-              </TouchableOpacity>
-            </View>
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={true}
+      onRequestClose={() => router.back()}
+    >
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.backButtonText}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Compare Items</Text>
           </View>
-        )}
-      </View>
-    </SafeAreaView>
+
+          <View style={styles.content}>
+            <Text style={styles.questionText}>Which is better?</Text>
+            
+            {error && <Text style={styles.errorText}>{error}</Text>}
+            
+            {loading ? (
+              <ActivityIndicator size="large" color="#FFD700" style={styles.loader} />
+            ) : (
+              <View style={styles.comparisonContainer}>
+                <View style={styles.itemsContainer}>
+                  <View style={styles.itemBox}>
+                    <Text style={styles.itemName}>{newItemName}</Text>
+                    <Text style={styles.itemLabel}>New Item</Text>
+                  </View>
+                  
+                  <Text style={styles.vsText}>VS</Text>
+                  
+                  <View style={styles.itemBox}>
+                    <Text style={styles.itemName}>{comparisonItemName}</Text>
+                    <Text style={styles.itemLabel}>Existing Item</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity
+                    style={styles.comparisonButton}
+                    onPress={() => handleComparisonResponse(true)}
+                  >
+                    <Text style={styles.buttonText}>First item is better</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.comparisonButton}
+                    onPress={() => handleComparisonResponse(false)}
+                  >
+                    <Text style={styles.buttonText}>Second item is better</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </SafeAreaView>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#1C1C1E',
+  },
   container: {
     flex: 1,
     backgroundColor: '#1C1C1E',
@@ -142,6 +160,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 16,
+    backgroundColor: '#1C1C1E',
   },
   backButton: {
     padding: 8,

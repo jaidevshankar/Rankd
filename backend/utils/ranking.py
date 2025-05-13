@@ -9,6 +9,7 @@ import requests
 from balldontlie import BalldontlieAPI
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
+import random
 
 app = FastAPI()
 
@@ -194,15 +195,20 @@ def update_elo_ratings(item_a: dict, item_b: dict, winner: str, K: float = 32.0)
        Ratings are maintained on a 0-10 scale.
     """
     Ra, Rb = item_a["score"], item_b["score"]
-    # Use a scale factor of 400 for the logistic formula (standard Elo)
+    # Calculate expected scores
     expected_a = 1 / (1 + 10 ** ((Rb - Ra) / 400))
     expected_b = 1 - expected_a
+    
+    # Set actual scores based on winner
     if winner == "A":
         Sa, Sb = 1.0, 0.0
     else:
         Sa, Sb = 0.0, 1.0
+    
+    # Calculate new ratings
     new_Ra = Ra + K * (Sa - expected_a)
     new_Rb = Rb + K * (Sb - expected_b)
+    
     return new_Ra, new_Rb
 
 # CHANGE: Function to redistribute initial calibration scores by category once 10 items exist.
@@ -600,13 +606,14 @@ def compare_item(request: ItemComparisonRequest):
 
     # For new items, we need to perform comparisons
     # First, add the new item to the rankings with a default score
-    # We'll insert it at the appropriate position based on score
     insert_ranking(user_id, topic_id, item_info["id"], None, None, INITIAL_SCORE)
     
-    # Find the first comparison item (start with the middle item for binary search)
-    left, right = 0, total_items - 1
-    mid = (left + right) // 2
-    comparison_item = ranked_items[mid]
+    # Select up to 3 random items for comparison
+    num_comparisons = min(3, total_items)
+    comparison_items = random.sample(ranked_items, num_comparisons)
+    
+    # Get the first comparison item
+    comparison_item = comparison_items[0]
     
     return {
         "status": "comparison_needed",
@@ -618,7 +625,8 @@ def compare_item(request: ItemComparisonRequest):
         "comparison_item": {
             "id": comparison_item["item_id"],
             "name": comparison_item["item_name"]
-        }
+        },
+        "remaining_comparisons": num_comparisons - 1
     }
 
 @app.post("/respond_comparison")
@@ -636,36 +644,47 @@ def respond_comparison(request: ComparisonResponse):
         raise HTTPException(status_code=404, detail="Topic not found")
     topic_id = topic[0]["topic_id"]
 
-    # Get all rankings for this user/topic
-    ranked_items = fetch_ranked_items(user_id, topic_id)
+    # Get both items' rankings
+    new_item_ranking = supabase.table("Rankings").select("*")\
+        .eq("user_id", user_id)\
+        .eq("topic_id", topic_id)\
+        .eq("item_id", new_item_id)\
+        .execute().data
     
-    # Find the comparison item's position
-    comparison_idx = next((i for i, item in enumerate(ranked_items) if item["item_id"] == comparison_item_id), -1)
-    
-    if comparison_idx == -1:
-        raise HTTPException(status_code=404, detail="Comparison item not found in rankings")
+    comparison_item_ranking = supabase.table("Rankings").select("*")\
+        .eq("user_id", user_id)\
+        .eq("topic_id", topic_id)\
+        .eq("item_id", comparison_item_id)\
+        .execute().data
 
-    # Get the comparison item's current score
-    comparison_score = ranked_items[comparison_idx]["score"] or INITIAL_SCORE
-    
+    if not new_item_ranking or not comparison_item_ranking:
+        raise HTTPException(status_code=404, detail="One or both items not found in rankings")
+
+    new_item_ranking = new_item_ranking[0]
+    comparison_item_ranking = comparison_item_ranking[0]
+
+    # Get current scores
+    new_item_score = new_item_ranking["score"] or INITIAL_SCORE
+    comparison_item_score = comparison_item_ranking["score"] or INITIAL_SCORE
+
     # Calculate new scores using Elo system
     if is_better:
         # New item is better than comparison item
         new_score, updated_comparison_score = update_elo_ratings(
-            {"score": INITIAL_SCORE},
-            {"score": comparison_score},
+            {"score": new_item_score},
+            {"score": comparison_item_score},
             "A",
             K_FACTOR
         )
     else:
         # New item is worse than comparison item
         updated_comparison_score, new_score = update_elo_ratings(
-            {"score": comparison_score},
-            {"score": INITIAL_SCORE},
+            {"score": comparison_item_score},
+            {"score": new_item_score},
             "A",
             K_FACTOR
         )
-    
+
     # Update both items' scores
     supabase.table("Rankings")\
         .update({"score": updated_comparison_score})\
@@ -673,27 +692,27 @@ def respond_comparison(request: ComparisonResponse):
         .eq("topic_id", topic_id)\
         .eq("item_id", comparison_item_id)\
         .execute()
-    
+
     supabase.table("Rankings")\
         .update({"score": new_score})\
         .eq("user_id", user_id)\
         .eq("topic_id", topic_id)\
         .eq("item_id", new_item_id)\
         .execute()
-    
-    # Get updated rankings after score changes
-    updated_rankings = supabase.table("Rankings")\
+
+    # Get all rankings for this user/topic
+    all_rankings = supabase.table("Rankings")\
         .select("*")\
         .eq("user_id", user_id)\
         .eq("topic_id", topic_id)\
         .order("score", desc=True)\
         .execute().data
-    
-    # Rebuild the linked list based on score order
-    for i, item in enumerate(updated_rankings):
-        prev_id = updated_rankings[i-1]["item_id"] if i > 0 else None
-        next_id = updated_rankings[i+1]["item_id"] if i < len(updated_rankings) - 1 else None
-        
+
+    # Update linked list structure based on new scores
+    for i, item in enumerate(all_rankings):
+        prev_id = all_rankings[i-1]["item_id"] if i > 0 else None
+        next_id = all_rankings[i+1]["item_id"] if i < len(all_rankings) - 1 else None
+
         supabase.table("Rankings")\
             .update({
                 "prev_item": prev_id,
@@ -703,159 +722,39 @@ def respond_comparison(request: ComparisonResponse):
             .eq("topic_id", topic_id)\
             .eq("item_id", item["item_id"])\
             .execute()
-    
-    # Check if we need more comparisons
-    updated_ranked_items = fetch_ranked_items(user_id, topic_id)
-    new_item_rank = next((i for i, item in enumerate(updated_ranked_items) if item["item_id"] == new_item_id), -1)
-    
-    if 0 < new_item_rank < len(updated_ranked_items) - 1:
-        # Find the next comparison item
-        comparison_item = updated_ranked_items[new_item_rank - 1] if is_better else updated_ranked_items[new_item_rank + 1]
+
+    # Get remaining items for comparison (excluding already compared items)
+    remaining_items = [item for item in all_rankings 
+                      if item["item_id"] != new_item_id 
+                      and item["item_id"] != comparison_item_id]
+
+    if remaining_items:
+        # Select next random item for comparison
+        next_comparison_item = random.choice(remaining_items)
         
+        # Get item name from Items table
+        item_name = supabase.table("Items")\
+            .select("item_name")\
+            .eq("item_id", next_comparison_item["item_id"])\
+            .execute().data[0]["item_name"]
+
         return {
             "status": "comparison_needed",
             "message": "Compare with another item",
             "new_item": {
                 "id": new_item_id,
-                "name": supabase.table("Items").select("item_name").eq("item_id", new_item_id).execute().data[0]["item_name"]
-            },
-            "comparison_item": {
-                "id": comparison_item["item_id"],
-                "name": comparison_item["item_name"]
-            }
-        }
-    
-    return {
-        "status": "completed",
-        "message": "Item ranked successfully",
-        "ranking": updated_ranked_items
-    }
-
-@app.post("/respond_comparison")
-def respond_comparison(request: ComparisonResponse):
-    """Process a comparison response from the user"""
-    user_id = request.user_id
-    new_item_id = request.new_item_id
-    comparison_item_id = request.comparison_item_id
-    topic_name = request.topic_name
-    is_better = request.is_better
-
-    # Get topic_id
-    topic = supabase.table("Topics").select("*").eq("topic_name", topic_name).execute().data
-    if not topic:
-        raise HTTPException(status_code=404, detail="Topic not found")
-    topic_id = topic[0]["topic_id"]
-
-    # Get all rankings for this user/topic
-    ranked_items = fetch_ranked_items(user_id, topic_id)
-    
-    # Find the comparison item's position
-    comparison_idx = next((i for i, item in enumerate(ranked_items) if item["item_id"] == comparison_item_id), -1)
-    
-    if comparison_idx == -1:
-        raise HTTPException(status_code=404, detail="Comparison item not found in rankings")
-
-    # Get the comparison item's current score
-    comparison_score = ranked_items[comparison_idx]["score"] or INITIAL_SCORE
-    
-    # Calculate new scores using Elo system
-    if is_better:
-        # New item is better than comparison item
-        new_score, updated_comparison_score = update_elo_ratings(
-            {"score": INITIAL_SCORE},
-            {"score": comparison_score},
-            "A",
-            K_FACTOR
-        )
-        
-        # Update comparison item's score
-        supabase.table("Rankings").update({"score": updated_comparison_score}) \
-            .eq("user_id", user_id) \
-            .eq("topic_id", topic_id) \
-            .eq("item_id", comparison_item_id) \
-            .execute()
-        
-        # Find the right position for the new item
-        insertion_index = comparison_idx
-        while insertion_index > 0 and ranked_items[insertion_index - 1]["score"] < new_score:
-            insertion_index -= 1
-            
-        # Get prev and next items for insertion
-        prev_item_id = ranked_items[insertion_index - 1]["item_id"] if insertion_index > 0 else None
-        next_item_id = ranked_items[insertion_index]["item_id"]
-        
-    else:
-        # New item is worse than comparison item
-        updated_comparison_score, new_score = update_elo_ratings(
-            {"score": comparison_score},
-            {"score": INITIAL_SCORE},
-            "A",
-            K_FACTOR
-        )
-        
-        # Update comparison item's score
-        supabase.table("Rankings").update({"score": updated_comparison_score}) \
-            .eq("user_id", user_id) \
-            .eq("topic_id", topic_id) \
-            .eq("item_id", comparison_item_id) \
-            .execute()
-        
-        # Find the right position for the new item
-        insertion_index = comparison_idx + 1
-        while insertion_index < len(ranked_items) and ranked_items[insertion_index]["score"] > new_score:
-            insertion_index += 1
-            
-        # Get prev and next items for insertion
-        prev_item_id = ranked_items[insertion_index - 1]["item_id"] if insertion_index > 0 else None
-        next_item_id = ranked_items[insertion_index]["item_id"] if insertion_index < len(ranked_items) else None
-
-    # Update the new item's ranking
-    supabase.table("Rankings") \
-        .update({
-            "prev_item": prev_item_id,
-            "next_item": next_item_id,
-            "score": new_score
-        }) \
-        .eq("user_id", user_id) \
-        .eq("topic_id", topic_id) \
-        .eq("item_id", new_item_id) \
-        .execute()
-
-    # Update the previous item's next pointer
-    if prev_item_id:
-        supabase.table("Rankings") \
-            .update({"next_item": new_item_id}) \
-            .eq("user_id", user_id) \
-            .eq("topic_id", topic_id) \
-            .eq("item_id", prev_item_id) \
-            .execute()
-    
-    # Update the next item's previous pointer
-    if next_item_id:
-        supabase.table("Rankings") \
-            .update({"prev_item": new_item_id}) \
-            .eq("user_id", user_id) \
-            .eq("topic_id", topic_id) \
-            .eq("item_id", next_item_id) \
-            .execute()
-
-    # Check if we need more comparisons
-    if insertion_index > 0 and insertion_index < len(ranked_items):
-        # Need to compare with the next item
-        next_comparison_item = ranked_items[insertion_index]
-        return {
-            "status": "comparison_needed",
-            "message": "Compare with another item",
-            "new_item": {
-                "id": new_item_id,
-                "name": supabase.table("Items").select("item_name").eq("item_id", new_item_id).execute().data[0]["item_name"]
+                "name": supabase.table("Items")
+                    .select("item_name")
+                    .eq("item_id", new_item_id)
+                    .execute().data[0]["item_name"]
             },
             "comparison_item": {
                 "id": next_comparison_item["item_id"],
-                "name": next_comparison_item["item_name"]
-            }
+                "name": item_name
+            },
+            "remaining_comparisons": len(remaining_items) - 1
         }
-    
+
     return {
         "status": "completed",
         "message": "Item ranked successfully",

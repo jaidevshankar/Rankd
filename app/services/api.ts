@@ -8,7 +8,7 @@ import { getApiBaseUrl } from './getApiBaseUrl';
 const getBaseUrl = () => {
   // Use the host's IP address for all platforms in development
   if (__DEV__) {
-    return 'http://10.193.129.73:8001';
+    return 'http://10.192.224.56:8001';
   } else {
     // Production fallback
     if (Platform.OS === 'android') {
@@ -25,7 +25,7 @@ const getBaseUrl = () => {
 };
 
 // For development, always use the explicit IP
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || getBaseUrl();
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8001';
 
 export interface RankingItem {
   user_id: number;
@@ -52,8 +52,9 @@ export interface RankingResponse {
 export const rankingService = {
   // Compare items
   compareItems: async (data: RankingItem): Promise<RankingResponse> => {
-    const baseUrl = await getApiBaseUrl();
     try {
+      const baseUrl = await getApiBaseUrl();
+      console.log('Making request to:', `${baseUrl}/compare`);
       const response = await axios.post(`${baseUrl}/compare`, data);
       return response.data;
     } catch (error) {
@@ -64,8 +65,9 @@ export const rankingService = {
 
   // Get rankings for a topic
   getRankings: async (topic: string, userId: number): Promise<RankingResponse> => {
-    const baseUrl = await getApiBaseUrl();
     try {
+      const baseUrl = await getApiBaseUrl();
+      console.log('Making request to:', `${baseUrl}/rankings`);
       const response = await axios.get(`${baseUrl}/rankings`, {
         params: { topic, user_id: userId }
       });
@@ -114,8 +116,9 @@ export const rankingService = {
 
   // Get all topics
   getTopics: async (): Promise<string[]> => {
-    const baseUrl = await getApiBaseUrl();
     try {
+      const baseUrl = await getApiBaseUrl();
+      console.log('Making request to:', `${baseUrl}/topics`);
       const response = await axios.get(`${baseUrl}/topics`);
       if (response.data && Array.isArray(response.data.topics)) {
         return response.data.topics;

@@ -51,18 +51,31 @@ export default function RankingList({ topic, userId }: RankingListProps) {
 
   const handleCompare = async (itemId: string) => {
     try {
+      console.log('Starting comparison for item:', itemId);
       const response = await rankingService.compareItems({
         user_id: userId,
-        item_id: itemId,
+        item_id: parseInt(itemId, 10),
         topic_name: topic
       });
-      if (response.ranking) {
-        setRankings(response.ranking);
+      console.log('Comparison response:', response);
+      
+      if (response.status === 'comparison_needed') {
+        console.log('Need to compare with:', response.comparison_item);
+        // TODO: Show comparison UI
+      } else if (response.status === 'completed') {
+        console.log('Comparison completed, updating rankings');
+        if (response.ranking) {
+          setRankings(response.ranking);
+        }
       }
       setError(null);
     } catch (err) {
-      setError('Failed to compare items');
       console.error('Error comparing items:', err);
+      if (axios.isAxiosError(err)) {
+        console.error('Response data:', err.response?.data);
+        console.error('Response status:', err.response?.status);
+      }
+      setError('Failed to compare items');
     }
   };
 
@@ -70,7 +83,7 @@ export default function RankingList({ topic, userId }: RankingListProps) {
     try {
       await rankingService.removeItem({
         user_id: userId,
-        item_id: itemId,
+        item_id: parseInt(itemId, 10),
         topic_name: topic
       });
       // Refresh rankings after removal
@@ -90,7 +103,7 @@ export default function RankingList({ topic, userId }: RankingListProps) {
     );
   }
 
-  if (error && !rankings.length) {
+  if (error && (!rankings || rankings.length === 0)) {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>{error}</Text>
@@ -104,7 +117,7 @@ export default function RankingList({ topic, userId }: RankingListProps) {
     );
   }
 
-  if (!rankings.length) {
+  if (!rankings || rankings.length === 0) {
     return (
       <ScrollView 
         style={styles.container}
@@ -123,6 +136,13 @@ export default function RankingList({ topic, userId }: RankingListProps) {
       </ScrollView>
     );
   }
+
+  // Sort rankings by score in descending order
+  const sortedRankings = [...rankings].sort((a, b) => {
+    const scoreA = a.score ?? 0;
+    const scoreB = b.score ?? 0;
+    return scoreB - scoreA;
+  });
 
   return (
     <ScrollView 
@@ -144,7 +164,7 @@ export default function RankingList({ topic, userId }: RankingListProps) {
         </View>
       )}
       
-      {rankings.map((item, index) => (
+      {sortedRankings.map((item, index) => (
         <View key={item.item_id} style={styles.itemContainer}>
           <View style={styles.rankContainer}>
             <Text style={styles.rankNumber}>{index + 1}</Text>

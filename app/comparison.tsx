@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { rankingService } from './services/api';
+import { rankingService, RankingResponse } from './services/api';
 import { useAuth } from '../contexts/AuthContext';
+import axios from 'axios';
 
 export default function ComparisonScreen() {
   const router = useRouter();
@@ -13,7 +14,8 @@ export default function ComparisonScreen() {
     comparisonItemId, 
     comparisonItemName,
     topic,
-    userId: paramUserId
+    userId: paramUserId,
+    remainingComparisons: paramRemainingComparisons
   } = useLocalSearchParams<{
     newItemId: string;
     newItemName: string;
@@ -21,10 +23,12 @@ export default function ComparisonScreen() {
     comparisonItemName: string;
     topic: string;
     userId?: string;
+    remainingComparisons?: string;
   }>();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [comparisonCount, setComparisonCount] = useState(0);
 
   const handleComparisonResponse = async (isBetter: boolean) => {
     const user_id = user?.user_id || (paramUserId ? parseInt(paramUserId) : undefined);
@@ -46,9 +50,22 @@ export default function ComparisonScreen() {
         is_better: isBetter
       });
 
+      // Increment comparison count
+      const newComparisonCount = comparisonCount + 1;
+
+      // If we've reached 3 comparisons, go to home page
+      if (newComparisonCount >= 3) {
+        router.push({
+          pathname: '/(tabs)',
+          params: { topic }
+        });
+        return;
+      }
+
       // Handle different response statuses
-      if (response.status === 'comparison_needed') {
+      if (response.status === 'comparison_needed' && response.comparison_item) {
         // Need another comparison
+        setComparisonCount(newComparisonCount);
         router.push({
           pathname: '/comparison',
           params: {
@@ -57,21 +74,22 @@ export default function ComparisonScreen() {
             comparisonItemId: response.comparison_item.id.toString(),
             comparisonItemName: response.comparison_item.name,
             topic,
-            userId: user_id.toString()
+            userId: user_id.toString(),
+            remainingComparisons: (2 - newComparisonCount).toString()
           }
         });
       } else {
-        // No more comparisons needed, go to rankings
+        // No more comparisons needed, go to home
         router.push({
-          pathname: '/(tabs)/rankings',
-          params: { topic, userId: user_id.toString() }
+          pathname: '/(tabs)',
+          params: { topic }
         });
       }
-    } catch (error) {
-      if (error.response) {
-        console.error('Error with comparison:', error.response.data);
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response) {
+        console.error('Error with comparison:', err.response.data);
       } else {
-        console.error('Error with comparison:', error);
+        console.error('Error with comparison:', err);
       }
       setError('Failed to process comparison. Please try again.');
     } finally {

@@ -104,7 +104,8 @@ export default function SearchScreen() {
             comparisonItemId: response.comparison_item?.id.toString() || '',
             comparisonItemName: response.comparison_item?.name || '',
             topic: topic as string,
-            userId: user.user_id.toString()
+            userId: user.user_id.toString(),
+            remainingComparisons: '2' // Start with 2 remaining comparisons (3 total)
           }
         });
       } else {

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, Body
+from fastapi import FastAPI, APIRouter, HTTPException, Query, Body
 from typing import List, Optional
 from supabase import create_client, Client
 from datetime import datetime
@@ -9,6 +9,7 @@ url = "https://gkvqpvkyncgblfbfmsoz.supabase.co"
 key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrdnFwdmt5bmNnYmxmYmZtc296Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNDk5MTI5NSwiZXhwIjoyMDUwNTY3Mjk1fQ.KPPQgtkdf6tycv7CKe7hYhbKc0wx48mbeIXWAWU3OOs"
 supabase: Client = create_client(url, key)
 
+# Create a router instead of a FastAPI app
 router = APIRouter()
 
 # --- Get all accepted friends for a user ---

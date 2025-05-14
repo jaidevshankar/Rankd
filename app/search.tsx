@@ -105,7 +105,8 @@ export default function SearchScreen() {
             comparisonItemName: response.comparison_item?.name || '',
             topic: topic as string,
             userId: user.user_id.toString(),
-            remainingComparisons: '2' // Start with 2 remaining comparisons (3 total)
+            remainingComparisons: '4', // Start with 2 remaining comparisons (3 total)
+            comparisonCount: '0'
           }
         });
       } else {

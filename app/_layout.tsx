@@ -28,6 +28,7 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="search" options={{ presentation: 'modal' }} />
       <Stack.Screen name="comparison" options={{ presentation: 'card' }} />
+      <Stack.Screen name="friend-rankings" options={{ presentation: 'card' }} />
     </Stack>
   );
 }

@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity } from 'r
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { friendsService } from '../services/api';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { FontAwesome } from '@expo/vector-icons';
 
 // Sample data - in a real app, this would come from your backend
 const FRIENDS_DATA = [
@@ -23,9 +24,9 @@ type Friend = {
   email: string;
 };
 
-type FriendListProps = {
+interface FriendListProps {
   userId: number;
-};
+}
 
 export default function FriendList({ userId }: FriendListProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,6 +34,7 @@ export default function FriendList({ userId }: FriendListProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { isDark } = useTheme();
+  const router = useRouter();
 
   const fetchFriends = useCallback(async () => {
     setLoading(true);
@@ -62,6 +64,16 @@ export default function FriendList({ userId }: FriendListProps) {
     friend.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const navigateToFriendRankings = (friendId: number, friendName: string) => {
+    router.push({
+      pathname: '/friend-rankings',
+      params: {
+        friendId: friendId.toString(),
+        friendName
+      }
+    } as any);
+  };
+
   const renderItem = ({ item }: { item: Friend }) => (
     <View
       style={[
@@ -73,8 +85,15 @@ export default function FriendList({ userId }: FriendListProps) {
         <Text style={[styles.friendName, { color: isDark ? '#FFFFFF' : '#000000' }]}> 
           {item.username}
         </Text>
-        <Text style={styles.friendStatus}>{item.email}</Text>
+        <Text style={styles.friendEmail}>{item.email}</Text>
       </View>
+      <TouchableOpacity 
+        style={styles.viewRankingsButton}
+        onPress={() => navigateToFriendRankings(item.user_id, item.username)}
+      >
+        <FontAwesome name="list-ol" size={16} color="#1C1C1E" />
+        <Text style={styles.viewRankingsText}>View Rankings</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -92,13 +111,12 @@ export default function FriendList({ userId }: FriendListProps) {
           style={[
             styles.searchInput,
             { 
-              backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7',
-              color: isDark ? '#FFFFFF' : '#000000',
-              borderColor: isDark ? '#3A3A3C' : '#E5E5EA'
+              backgroundColor: isDark ? '#2C2C2E' : '#E5E5EA',
+              color: isDark ? '#FFFFFF' : '#000000'
             }
           ]}
           placeholder="Search friends..."
-          placeholderTextColor={isDark ? '#8E8E93' : '#6C6C70'}
+          placeholderTextColor={isDark ? '#8E8E93' : '#8E8E93'}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -106,9 +124,18 @@ export default function FriendList({ userId }: FriendListProps) {
       <FlatList
         data={filteredFriends}
         renderItem={renderItem}
-        keyExtractor={item => item.user_id.toString()}
+        keyExtractor={(item) => item.user_id.toString()}
         contentContainerStyle={styles.friendsList}
-        ListEmptyComponent={<Text style={{ color: isDark ? '#FFF' : '#000', textAlign: 'center', marginTop: 32 }}>No friends found.</Text>}
+        ListEmptyComponent={
+          <Text style={{ 
+            color: isDark ? '#8E8E93' : '#8E8E93', 
+            textAlign: 'center', 
+            marginTop: 32,
+            marginBottom: 16
+          }}>
+            No friends found. Add friends from the Add Friend tab.
+          </Text>
+        }
       />
     </View>
   );
@@ -146,7 +173,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 4,
   },
-  friendStatus: {
+  friendEmail: {
     fontSize: 14,
+    color: '#FFD700',
+  },
+  viewRankingsButton: {
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewRankingsText: {
+    color: '#1C1C1E',
+    fontWeight: '600',
+    fontSize: 14,
+    marginLeft: 4,
   },
 }); 

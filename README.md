@@ -14,7 +14,7 @@
 ---
 
 ## Components
-![Architecture Diagram]()
+![Architecture Diagram](thumbnail_image001.png)
 
 ### 1. Frontend (React Native App)
 - **Functionality:**  

@@ -6,24 +6,28 @@
 
 ## Team Members
 
-- **Samarth Sreenivas** – Software Engineer  
-- **Leon Chien** – Software Engineer  
-- **Neel Nigam** – Software Engineer  
-- **Jaidev Shankar** – Software Engineer  
+- **Samarth Sreenivas** – Primarily developed ranking algorithm    
+- **Leon Chien** – Devloped friends system and authentification
+- **Neel Nigam** – Worked on front-end
+- **Jaidev Shankar** – Worked on elo-system and ranking algorithm  
 
 ---
 
 ## Components
+![Architecture Diagram](thumbnail_image001.png)
 
 ### 1. Frontend (React Native App)
 - **Functionality:**  
   - Provides the user interface for ranking items, viewing recommendations, and browsing rankings.  
   - Handles user interactions and state management.  
-- **Programming Language:** Swift  
+- **Programming Language:** Typescript
 - **Major Libraries/Frameworks:**  
-  - SwiftUI  
+  - React Native
+  - React Navigation
+  - Axios
+  - Expo Router
 - **Testing Methodology:**  
-  - Swift Testing for SwiftUI components  
+  - React Native Testing Library 
 - **Interactions:**  
   - Communicates with the backend API to fetch and submit ranking data.
 
@@ -75,54 +79,11 @@
    git clone https://github.com/your-org/rankd.git
    cd rankd
 
+2. **Start Backend Server**
+   python -m uvicorn app:app --host 0.0.0.0 --port 8001
 
-# Welcome to your Expo app 👋
+3. **Run Expo Server**
+   npx expo start
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
-## Get started
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-    npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.

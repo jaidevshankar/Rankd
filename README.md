@@ -2,14 +2,6 @@
 
 **Rankd** is a ranking and recommendation mobile app that allows users to rank items in various categories—including albums, movies, TV shows, video games, and restaurants—using a pairwise comparison algorithm similar to dating apps. The app uses API integrations to provide personalized recommendations based on user preferences and trends.
 
----
-
-## Team Members
-
-- **Samarth Sreenivas** – Primarily developed ranking algorithm    
-- **Leon Chien** – Devloped friends system and authentification
-- **Neel Nigam** – Worked on front-end
-- **Jaidev Shankar** – Worked on elo-system and ranking algorithm  
 
 ---
 
